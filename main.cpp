@@ -13,80 +13,50 @@
 #include "max3421e.h"
 #include "mcp2515.h"
 #include "delay.h"
-
-uint_fast8_t buff[10];
-uint_fast8_t response;
-DWire wire = DWire();
-uint32_t it;
+#include "simpackets.h"
+#include "i2cdriver.h"
 
 #define ISMASTER
 
-void handleReceive( uint8_t );
-void handleRequest( void );
+I2CInterface i2cInterface;
+
+void DataHandle( DataPacket * packet );
+void HeaderHandle( HeaderPacket * packet );
 
 int main( void ) {
     /* Disabling the Watchdog */
     MAP_WDT_A_holdTimer( );
 
-    wire.setFastMode();
-
-    wire.onReceive(handleReceive);
-    wire.onRequest(handleRequest);
+    i2cInterface.setDataHandler(DataHandle);
+    i2cInterface.setHeaderHandler(HeaderHandle);
 
 #ifdef ISMASTER
-    wire.begin();
+    int i;
 
-    while(1) {
-        wire.beginTransmission(0x44);
-        wire.write(1);
-        wire.write(2);
-        wire.write(3);
-        wire.endTransmission(true);
+    i2cInterface.init(true, 0);
 
-        response = wire.requestFrom(0x44, 4);
-        printf("Response: %d\n", response);
-        for(it = 0; it < 80000; it++);
+    HeaderPacket * pingPkt = new HeaderPacket(0, 1);
+    pingPkt->setCommand(PKT_PING, 0, 0, 0);
+    pingPkt->calculateNewCRC( );
+
+    while ( 1 ) {
+        i2cInterface.sendHeader(pingPkt);
+        for(i = 0; i < 50000; i++);
     }
 
+    //MAP_PCM_gotoLPM0InterruptSafe( );
 #else
-    wire.begin(0x44);
-
-    while(1) {
-        MAP_PCM_gotoLPM0InterruptSafe();
+    i2cInterface.init(false, 1);
+    while ( 1 ) {
+        MAP_PCM_gotoLPM0InterruptSafe( );
     }
 #endif
 }
 
-/**
- * Receive interrupt handler
- * This interrupt is triggered by DWire when a full frame has been received
- * (i.e. after receiving a STOP)
- */
-void handleReceive( uint8_t numBytes ) {
-
-    printf("Got a message\n");
-
-    // Get the rx buffer's contents from the DWire object
-    for ( int i = 0; i < numBytes; i++ ) {
-        buff[i] = wire.read( );
-
-        // Print the contents of the received byte
-        //serial->print(buff[i]);
-    }
-    // End the line in preparation of the next receive event
-    //serial->println( );
+void HeaderHandle( HeaderPacket * packet ) {
+delete packet;
 }
 
-/**
- * Request interrupt handler
- * This request is called on a read request from a master node.
- *
- */
-void handleRequest( void ) {
-    // Send back the data received from the master
-    //printf("Sending response.\n");
-    wire.write(1);
-    wire.write(2);
-    wire.write(3);
-    wire.write(4);
+void DataHandle( DataPacket * packet ) {
+delete packet;
 }

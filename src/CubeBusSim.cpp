@@ -6,7 +6,6 @@
  */
 
 #include <msp.h>
-#include <driverlib.h>
 #include "CubeBusSim.h"
 
 

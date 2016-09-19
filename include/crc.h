@@ -10,6 +10,6 @@
 
 #include <stdint.h>
 
-uint_fast16_t getCRC(uint_fast8_t *);
+uint_fast16_t getCRC(uint_fast8_t *, uint_fast8_t );
 
 #endif /* INCLUDE_CRC_H_ */
