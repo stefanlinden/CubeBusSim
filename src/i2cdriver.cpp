@@ -17,7 +17,8 @@ uint_fast8_t i2c_mode;
 void (*i2c_HeaderHandler)( HeaderPacket * );
 void (*i2c_DataHandler)( DataPacket * );
 
-HeaderPacket ACKresponse(1, 0);
+HeaderPacket * headerBuffer;
+DataPacket * dataBuffer;
 
 /* Interrupt handlers */
 void handleReceive( uint8_t );
@@ -26,8 +27,12 @@ void handleRequest( void );
 /* Class method definitions */
 uint_fast8_t I2CInterface::init( bool asMaster, uint_fast8_t ownAddress ) {
 
+    this->isMaster = asMaster;
     this->ownAddress = ownAddress;
     wire.setFastMode( );
+
+    headerBuffer = 0;
+    dataBuffer = 0;
 
     wire.onReceive(handleReceive);
     wire.onRequest(handleRequest);
@@ -43,33 +48,40 @@ uint_fast8_t I2CInterface::sendHeader( HeaderPacket * header ) {
     uint_fast8_t ii, address;
     uint_fast8_t * dataPtr;
 
-    header->calculateNewCRC( );
-    address = getI2CAddress(header->targetNode);
-    wire.beginTransmission(address);
+    if ( isMaster ) {
+        header->calculateNewCRC( );
+        address = getI2CAddress(header->targetNode);
+        wire.beginTransmission(address);
 
-    dataPtr = header->getRawData( );
+        dataPtr = header->getRawData( );
 
-    for ( ii = 0; ii < 8; ii++ ) {
-        wire.write(dataPtr[ii]);
-    }
+        for ( ii = 0; ii < 8; ii++ ) {
+            wire.write(dataPtr[ii]);
+        }
 
-    wire.endTransmission(true);
+        wire.endTransmission(true);
 
-    if ( !wire.requestFrom(address, 8) )
-        return ERR_TIMEOUT;
+        if ( !wire.requestFrom(address, 8) )
+            return ERR_TIMEOUT;
 
-    for ( ii = 0; ii < 8; ii++ )
-        i2c_rxBuffer[ii] = (uint_fast8_t) wire.read( );
+        for ( ii = 0; ii < 8; ii++ )
+            i2c_rxBuffer[ii] = (uint_fast8_t) wire.read( );
 
-    if ( i2c_rxBuffer[0] == PKT_ACK )
+        if ( i2c_rxBuffer[0] == PKT_ACK )
+            return 0;
+        else if ( i2c_rxBuffer[0] == PKT_NAK )
+            return ERR_NAK;
+        else
+            return ERR_UNEXPECTED;
+    } else {
+        /* When we're a slave, then we have to wait until the master requests data */
+        /* Load the data into the buffer */
+        headerBuffer = new HeaderPacket(header);
         return 0;
-    else if ( i2c_rxBuffer[0] == PKT_NAK )
-        return ERR_NAK;
-    else
-        return ERR_UNEXPECTED;
+    }
 }
 
-uint_fast8_t I2CInterface::sendData( uint_fast8_t * ) {
+uint_fast8_t I2CInterface::sendData( DataPacket * ) {
     return 0;
 }
 
@@ -82,9 +94,6 @@ void I2CInterface::setHeaderHandler( void (*handler)( HeaderPacket * ) ) {
 void I2CInterface::setDataHandler( void (*handler)( DataPacket * ) ) {
     DataHandler = handler;
     i2c_DataHandler = handler;
-
-    ACKresponse.setCommand(PKT_ACK, 0, 0, 0);
-    ACKresponse.calculateNewCRC( );
 }
 
 /**
@@ -113,12 +122,16 @@ void handleRequest( void ) {
     uint_fast8_t * rawData;
     uint_fast8_t ii;
 
-    HeaderPacket * packet = new HeaderPacket(1, 0);
-    packet->setCommand(PKT_ACK, 0, 0, 0);
-    rawData = packet->getRawData();
-    //rawData = ACKresponse.getRawData( );
-    for ( ii = 0; ii < 8; ii++ )
-        wire.write(rawData[ii]);
+    if(headerBuffer) {
+        headerBuffer->calculateNewCRC();
+        rawData = headerBuffer->getRawData();
+        for(ii = 0; ii < 8; ii++ )
+            wire.write(rawData[ii]);
 
-    delete packet;
+        delete headerBuffer;
+        headerBuffer = 0;
+
+    } else {
+        //send NAK
+    }
 }

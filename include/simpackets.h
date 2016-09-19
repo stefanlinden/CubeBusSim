@@ -47,6 +47,7 @@ public:
     /* Constructors */
     HeaderPacket(uint_fast8_t origin, uint_fast8_t target);
     HeaderPacket(uint_fast8_t * rawPacket);
+    HeaderPacket(HeaderPacket * orig);
 
     ~HeaderPacket();
 

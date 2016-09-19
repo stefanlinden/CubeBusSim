@@ -13,7 +13,7 @@ uint_fast8_t BusInterface::init(bool asMaster, uint_fast8_t ownAddress) {
     return ERR_UNDEFINED;
 }
 
-uint_fast8_t BusInterface::sendData(uint_fast8_t * param) {
+uint_fast8_t BusInterface::sendData(DataPacket * param) {
     return ERR_UNDEFINED;
 }
 
@@ -27,4 +27,12 @@ void BusInterface::setHeaderHandler(void (*handler)(HeaderPacket *)) {
 
 void BusInterface::setDataHandler(void (*handler)(DataPacket *)) {
     DataHandler = handler;
+}
+
+void BusInterface::setHeaderQueueCallBack(HeaderPacket* (*handler)(void)) {
+    HeaderQueueHandler = handler;
+}
+
+void BusInterface::setDataQueueCallBack(DataPacket* (*handler)(void)) {
+    DataQueueHandler = handler;
 }

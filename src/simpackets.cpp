@@ -9,6 +9,7 @@
 #include "simpackets.h"
 #include "crc.h"
 
+
 HeaderPacket::HeaderPacket( uint_fast8_t origin, uint_fast8_t target ) {
     this->cmd = 0;
     this->crc = 0;
@@ -35,11 +36,33 @@ HeaderPacket::HeaderPacket( uint_fast8_t * rawPacket ) {
     this->crc = ((uint_fast16_t) rawPacket[6] << 8) | rawPacket[7];
 }
 
-HeaderPacket::~HeaderPacket( ) {
-    delete[] param;
-    delete[] rawData;
+HeaderPacket::HeaderPacket(HeaderPacket * orig) {
+    uint_fast8_t ii;
+
+    this->cmd = orig->cmd;
+    this->crc = orig->crc;
+    this->originNode = orig->originNode;
+    this->targetNode = orig->targetNode;
+
+    this->param = new uint_fast8_t[3];
+    this->rawData = new uint_fast8_t[8];
+
+    for(ii = 0; ii < 3; ii++)
+        this->param[ii] = orig->param[ii];
+
+    for(ii = 0; ii < 8; ii++)
+        this->rawData[ii] = orig->rawData[ii];
 }
 
+HeaderPacket::~HeaderPacket( ) {
+    delete[] param;
+
+    if(rawData)
+        delete[] rawData;
+}
+
+
+/* Other methods */
 void HeaderPacket::setCommand( uint_fast8_t cmd, uint_fast8_t param0,
         uint_fast8_t param1, uint_fast8_t param2 ) {
     if ( rawData )

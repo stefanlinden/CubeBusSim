@@ -18,7 +18,7 @@ class I2CInterface: public BusInterface {
 public:
     /* General fields and methods */
     uint_fast8_t init( bool asMaster, uint_fast8_t ownAddress );
-    uint_fast8_t sendData( uint_fast8_t * );
+    uint_fast8_t sendData( DataPacket * );
 
     /* Bus MASTER methods */
     uint_fast8_t sendHeader( HeaderPacket * );
