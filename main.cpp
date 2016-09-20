@@ -16,106 +16,86 @@
 #include "simpackets.h"
 #include "i2cdriver.h"
 #include "messagequeue.h"
+#include "random.h"
 
-//#define ISMASTER
+#define ISMASTER
 
 /* Interfaces */
 I2CInterface i2cInterface;
+
+/* Prototypes */
+DataPacket * generateDataPacket( uint_fast8_t, bool );
 
 /* Handlers */
 void DataHandle( DataPacket * packet );
 void HeaderHandle( HeaderPacket * packet );
 
-/* Message Queue */
-DataItem * dataQFirst;
-DataItem * dataQLast;
-TXItem * TXFirst;
-TXItem * TXLast;
-uint32_t dataQSize, TXSize;
-
 /* Some standard packets */
 HeaderPacket ACKPacket(0, 1);
 HeaderPacket NAKPacket(0, 1);
 
+/* Counters */
+uint32_t dataRXCounter;
 
 int main( void ) {
     /* Disabling the Watchdog */
     MAP_WDT_A_holdTimer( );
-
-    dataQFirst = 0;
-    dataQLast = 0;
-    dataQSize = 0;
-
-    TXFirst = 0;
-    TXLast = 0;
-    TXSize = 0;
 
     i2cInterface.setDataHandler(DataHandle);
     i2cInterface.setHeaderHandler(HeaderHandle);
 
     /* Generate the standard packets */
     ACKPacket.setCommand(PKT_ACK, 0, 0, 0);
-    ACKPacket.calculateNewCRC();
+    ACKPacket.calculateNewCRC( );
     NAKPacket.setCommand(PKT_NAK, 0, 0, 0);
-    NAKPacket.calculateNewCRC();
+    NAKPacket.calculateNewCRC( );
 
 #ifdef ISMASTER
     int i;
 
+    dataRXCounter = 0;
+
     i2cInterface.init(true, 0);
 
-    HeaderPacket * pingPkt = new HeaderPacket(0, 1);
-    pingPkt->setCommand(PKT_PING, 0, 0, 0);
-    pingPkt->calculateNewCRC( );
+    HeaderPacket pingPkt(0, 1);
+    pingPkt.setCommand(PKT_PING, 0, 0, 0);
+    pingPkt.calculateNewCRC( );
 
     while ( 1 ) {
-
+        i2cInterface.sendHeader(&pingPkt);
+        for ( i = 0; i < 50000; i++ )
+            ;
+        i2cInterface.requestData(20, 1);
     }
 
-}*/
-i2cInterface.sendHeader(pingPkt);
-for ( i = 0; i < 50000; i++ )
-;
-}
-
- //MAP_PCM_gotoLPM0InterruptSafe( );
+    //MAP_PCM_gotoLPM0InterruptSafe( );
 #else
+
     i2cInterface.init(false, 1);
 
-    DataItem * dItem;
-
     while ( 1 ) {
-
-        while ( dataQSize ) {
-            /* Handle a  data packet */
-            delete dataQFirst->packet;
-            if ( dataQFirst->nextItem ) {
-                dItem = dataQFirst;
-                dataQFirst = dItem->nextItem;
-                dataQSize--;
-                delete dItem;
-            } else {
-                delete dataQFirst;
-                dataQFirst = 0;
-                dataQLast = 0;
-                dataQSize = 0;
-            }
-        }
-
         MAP_PCM_gotoLPM0InterruptSafe( );
     }
 #endif
 }
 
 void HeaderHandle( HeaderPacket * packet ) {
+    uint_fast8_t ii;
+
     if ( packet->checkCRC( ) ) {
         /* Error! Send NAK */
         i2cInterface.sendHeader(&NAKPacket);
     } else {
+        /* First of all, send an ACK */
         i2cInterface.sendHeader(&ACKPacket);
         switch ( packet->cmd ) {
         case PKT_PING:
             /* Do nothing, only ACK */
+            break;
+        case PKT_DATAPULL:
+            /* Generate fake data */
+            for ( ii = 0; ii < packet->param[0]; ii++ )
+                i2cInterface.queueData(generateDataPacket(61, true));
             break;
         }
     }
@@ -123,14 +103,26 @@ void HeaderHandle( HeaderPacket * packet ) {
 }
 
 void DataHandle( DataPacket * packet ) {
-    DataItem * item = new DataItem( );
-    item->packet = packet;
-    if ( dataQSize == 0 ) {
-        dataQFirst = item;
-        dataQLast = item;
-    } else {
-        dataQLast->nextItem = item;
-        dataQLast = item;
+    dataRXCounter++;
+    delete packet;
+}
+
+DataPacket * generateDataPacket( uint_fast8_t length, bool doCRC ) {
+    /* Generate test data using a simple PRNG */
+    uint_fast8_t ii;
+    DataPacket * packet;
+
+    uint_fast8_t * data = new uint_fast8_t[length];
+    for ( ii = 0; ii < length; ii++ ) {
+        data[ii] = (uint_fast8_t) random( );
     }
-    dataQSize++;
+
+    packet = new DataPacket(length, data);
+
+    delete data;
+
+    if ( doCRC )
+        packet->generateCRC( );
+
+    return packet;
 }

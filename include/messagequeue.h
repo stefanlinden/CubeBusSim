@@ -11,27 +11,27 @@
 #define QTYPE_HEADER 0
 #define QTYPE_DATA 1
 
-class HeaderItem {
-public:
-    HeaderItem * nextItem;
-    HeaderPacket * packet;
-};
+#include "simpackets.h"
 
 class DataItem {
 public:
     DataItem * nextItem;
     DataPacket * packet;
-
 };
 
-class TXItem {
+class DataQueue {
 public:
-    uint_fast8_t type;
-    TXItem * nextItem;
-    union {
-        HeaderPacket * headerPacket;
-        DataPacket * dataPacket;
-    };
+    DataQueue( void );
+    uint_fast8_t getLength( void );
+    void add( DataPacket * );
+    DataPacket * pop( void );
+
+private:
+    DataItem * head;
+    DataItem * tail;
+    uint_fast8_t length;
+
 };
+
 
 #endif /* INCLUDE_MESSAGEQUEUE_H_ */

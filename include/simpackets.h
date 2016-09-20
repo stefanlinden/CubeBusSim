@@ -81,6 +81,7 @@ public:
     ~DataPacket( void );
 
     void generateCRC( void );
+    bool checkCRC( void );
 };
 
 #endif /* INCLUDE_SIMPACKETS_H_ */

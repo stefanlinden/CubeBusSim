@@ -22,6 +22,7 @@ public:
 
     /* Bus MASTER methods */
     uint_fast8_t sendHeader( HeaderPacket * );
+    uint_fast8_t requestData( uint_fast8_t, uint_fast8_t );
 
     void setHeaderHandler(void (*)(HeaderPacket *));
     void setDataHandler(void (*)(DataPacket *));

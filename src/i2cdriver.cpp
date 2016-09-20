@@ -19,6 +19,7 @@ void (*i2c_DataHandler)( DataPacket * );
 
 HeaderPacket * headerBuffer;
 DataPacket * dataBuffer;
+DataQueue * queue;
 
 /* Interrupt handlers */
 void handleReceive( uint8_t );
@@ -36,6 +37,8 @@ uint_fast8_t I2CInterface::init( bool asMaster, uint_fast8_t ownAddress ) {
 
     wire.onReceive(handleReceive);
     wire.onRequest(handleRequest);
+
+    queue = &dataQueue;
 
     if ( asMaster )
         wire.begin( );
@@ -81,6 +84,54 @@ uint_fast8_t I2CInterface::sendHeader( HeaderPacket * header ) {
     }
 }
 
+uint_fast8_t I2CInterface::requestData( uint_fast8_t howMuch, uint_fast8_t address ) {
+    /* Request data packages. One package is 64 bytes in total (including CRC and command byte */
+    uint_fast8_t ii, res, readii;
+    uint_fast8_t * dataBuffer;
+    DataPacket * dataPkt;
+    bool crcerror;
+
+    crcerror = false;
+
+    HeaderPacket * pullRequest = new HeaderPacket(0, 1);
+    pullRequest->setCommand(PKT_DATAPULL, howMuch, 0, 0);
+    pullRequest->calculateNewCRC( );
+
+    /* Send the request header */
+    res = sendHeader(pullRequest);
+    delete pullRequest;
+    if(res != 0)
+        return res;
+
+    /* Load the messages */
+    for ( ii = 0; ii < howMuch; ii++ ) {
+        res = wire.requestFrom(getI2CAddress(address), 64);
+        if(res == 0)
+            return ERR_NAK;
+        dataBuffer = new uint_fast8_t[64];
+        for(readii = 0; readii < 64; readii++)
+            dataBuffer[readii] = wire.read();
+
+        /* Create a packet */
+        dataPkt = new DataPacket(61, &dataBuffer[1]);
+
+        /* Load and check the CRC */
+        dataPkt->crc = ((uint_fast16_t) dataBuffer[62] << 8) | (dataBuffer[63] & 0xFF);
+        delete dataBuffer;
+        if(dataPkt->checkCRC())
+            crcerror = true;
+
+        delete dataPkt;
+    }
+
+
+
+    if(crcerror)
+        return ERR_CRC;
+    else
+        return 0;
+}
+
 uint_fast8_t I2CInterface::sendData( DataPacket * ) {
     return 0;
 }
@@ -105,12 +156,12 @@ void handleReceive( uint8_t numBytes ) {
     uint_fast8_t ii;
 
     for ( ii = 0; ii < numBytes; ii++ )
-        i2c_rxBuffer[ii] = numBytes;
+        i2c_rxBuffer[ii] = wire.read( );
 
     if ( i2c_rxBuffer[0] == PKT_DATA )
-        i2c_DataHandler(new DataPacket(numBytes - 1, &i2c_rxBuffer[1]));
+        i2c_DataHandler(new DataPacket(numBytes, &i2c_rxBuffer[0]));
     else
-        i2c_HeaderHandler(new HeaderPacket(&i2c_rxBuffer[1]));
+        i2c_HeaderHandler(new HeaderPacket(&i2c_rxBuffer[0]));
 }
 
 /**
@@ -122,16 +173,26 @@ void handleRequest( void ) {
     uint_fast8_t * rawData;
     uint_fast8_t ii;
 
-    if(headerBuffer) {
-        headerBuffer->calculateNewCRC();
-        rawData = headerBuffer->getRawData();
-        for(ii = 0; ii < 8; ii++ )
+    if ( headerBuffer ) {
+        headerBuffer->calculateNewCRC( );
+        rawData = headerBuffer->getRawData( );
+        for ( ii = 0; ii < 8; ii++ )
             wire.write(rawData[ii]);
 
         delete headerBuffer;
         headerBuffer = 0;
 
-    } else {
-        //send NAK
+    } else if ( queue->getLength( ) ) {
+        /* Send data */
+        DataPacket * packet = queue->pop( );
+        wire.write(PKT_DATA);
+        for ( ii = 0; ii < packet->length; ii++ )
+            wire.write(packet->data[ii]);
+
+        /* Add the CRC */
+        wire.write((((uint_fast8_t) packet->crc) >> 8) & 0xFF);
+        wire.write(((uint_fast8_t) packet->crc) & 0xFF);
+
+        delete packet;
     }
 }

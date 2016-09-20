@@ -142,3 +142,10 @@ DataPacket::~DataPacket( void ) {
 void DataPacket::generateCRC( void ) {
     this->crc = getCRC(data, length);
 }
+
+bool DataPacket::checkCRC( void ) {
+    if(getCRC(data, length) == this->crc)
+        return 0;
+    else
+        return ERR_CRC;
+}
