@@ -30,9 +30,8 @@ public:
 
     /* General fields and methods */
     virtual uint_fast8_t init( bool asMaster, uint_fast8_t ownAddress );
-    virtual uint_fast8_t sendData( DataPacket * );
 
-    void queueData( DataPacket * );
+    virtual void queueData( DataPacket * );
 
     /* Bus MASTER methods */
     virtual uint_fast8_t sendHeader( HeaderPacket * );

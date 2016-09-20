@@ -15,10 +15,6 @@ uint_fast8_t BusInterface::init(bool asMaster, uint_fast8_t ownAddress) {
     return ERR_UNDEFINED;
 }
 
-uint_fast8_t BusInterface::sendData(DataPacket * param) {
-    return ERR_UNDEFINED;
-}
-
 uint_fast8_t BusInterface::sendHeader(HeaderPacket * packet) {
     return ERR_UNDEFINED;
 }

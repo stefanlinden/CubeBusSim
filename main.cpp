@@ -15,6 +15,7 @@
 #include "delay.h"
 #include "simpackets.h"
 #include "i2cdriver.h"
+#include "candriver.h"
 #include "messagequeue.h"
 #include "random.h"
 
@@ -22,6 +23,7 @@
 
 /* Interfaces */
 I2CInterface i2cInterface;
+CANInterface canInterface;
 
 /* Prototypes */
 DataPacket * generateDataPacket( uint_fast8_t, bool );
@@ -35,7 +37,6 @@ HeaderPacket ACKPacket(0, 1);
 HeaderPacket NAKPacket(0, 1);
 
 /* Counters */
-uint32_t dataRXCounter;
 
 int main( void ) {
     /* Disabling the Watchdog */
@@ -43,6 +44,9 @@ int main( void ) {
 
     i2cInterface.setDataHandler(DataHandle);
     i2cInterface.setHeaderHandler(HeaderHandle);
+    canInterface.setDataHandler(DataHandle);
+    canInterface.setHeaderHandler(HeaderHandle);
+
 
     /* Generate the standard packets */
     ACKPacket.setCommand(PKT_ACK, 0, 0, 0);
@@ -52,8 +56,6 @@ int main( void ) {
 
 #ifdef ISMASTER
     int i;
-
-    dataRXCounter = 0;
 
     i2cInterface.init(true, 0);
 
@@ -103,7 +105,6 @@ void HeaderHandle( HeaderPacket * packet ) {
 }
 
 void DataHandle( DataPacket * packet ) {
-    dataRXCounter++;
     delete packet;
 }
 

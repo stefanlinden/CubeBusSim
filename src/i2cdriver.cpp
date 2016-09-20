@@ -124,16 +124,10 @@ uint_fast8_t I2CInterface::requestData( uint_fast8_t howMuch, uint_fast8_t addre
         delete dataPkt;
     }
 
-
-
     if(crcerror)
         return ERR_CRC;
     else
         return 0;
-}
-
-uint_fast8_t I2CInterface::sendData( DataPacket * ) {
-    return 0;
 }
 
 /* The set*Handler methods are overridden here to create a global handle */
