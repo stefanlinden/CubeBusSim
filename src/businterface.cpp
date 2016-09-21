@@ -35,3 +35,7 @@ void BusInterface::queueData(DataPacket * packet) {
     dataQueue.add(packet);
 }
 
+uint_fast8_t BusInterface::getLastStatus( void ) {
+    return lastStatus;
+}
+

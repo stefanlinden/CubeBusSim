@@ -18,7 +18,7 @@ void (*i2c_HeaderHandler)( HeaderPacket * );
 void (*i2c_DataHandler)( DataPacket * );
 
 HeaderPacket * headerBuffer;
-DataPacket * dataBuffer;
+DataPacket * rxDataBuffer;
 DataQueue * queue;
 
 /* Interrupt handlers */
@@ -33,7 +33,7 @@ uint_fast8_t I2CInterface::init( bool asMaster, uint_fast8_t ownAddress ) {
     wire.setFastMode( );
 
     headerBuffer = 0;
-    dataBuffer = 0;
+    rxDataBuffer = 0;
 
     wire.onReceive(handleReceive);
     wire.onRequest(handleRequest);
@@ -70,11 +70,13 @@ uint_fast8_t I2CInterface::sendHeader( HeaderPacket * header ) {
         for ( ii = 0; ii < 8; ii++ )
             i2c_rxBuffer[ii] = (uint_fast8_t) wire.read( );
 
-        if ( i2c_rxBuffer[0] == PKT_ACK )
+        if ( i2c_rxBuffer[0] == PKT_ACK ) {
+            lastStatus = PKT_ACK;
             return 0;
-        else if ( i2c_rxBuffer[0] == PKT_NAK )
+        } else if ( i2c_rxBuffer[0] == PKT_NAK ) {
+            lastStatus = PKT_NAK;
             return ERR_NAK;
-        else
+        } else
             return ERR_UNEXPECTED;
     } else {
         /* When we're a slave, then we have to wait until the master requests data */

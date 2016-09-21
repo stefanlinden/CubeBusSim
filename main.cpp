@@ -37,6 +37,8 @@ HeaderPacket ACKPacket(0, 1);
 HeaderPacket NAKPacket(0, 1);
 
 /* Counters */
+volatile uint_fast8_t RXCounter;
+volatile int debugger;
 
 int main( void ) {
     /* Disabling the Watchdog */
@@ -47,7 +49,6 @@ int main( void ) {
     canInterface.setDataHandler(DataHandle);
     canInterface.setHeaderHandler(HeaderHandle);
 
-
     /* Generate the standard packets */
     ACKPacket.setCommand(PKT_ACK, 0, 0, 0);
     ACKPacket.calculateNewCRC( );
@@ -56,25 +57,62 @@ int main( void ) {
 
 #ifdef ISMASTER
     int i;
+    uint_fast8_t result;
 
-    i2cInterface.init(true, 0);
+    //i2cInterface.init(true, 0);
+    canInterface.init(true, 0);
 
     HeaderPacket pingPkt(0, 1);
     pingPkt.setCommand(PKT_PING, 0, 0, 0);
     pingPkt.calculateNewCRC( );
 
+    MAP_GPIO_setAsOutputPin(GPIO_PORT_P2, GPIO_PIN0); /* red LED */
+    MAP_GPIO_setAsOutputPin(GPIO_PORT_P2, GPIO_PIN1); /* green LED */
+    MAP_GPIO_setAsOutputPin(GPIO_PORT_P1, GPIO_PIN0); /* red 'busy' LED */
+
+    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN0);
+    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN1);
+    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN2);
+
+    debugger = 0;
+
     while ( 1 ) {
-        i2cInterface.sendHeader(&pingPkt);
+        result = 0;
+        //canInterface.sendHeader(&pingPkt);
+        //while(!result)
+        //    result = canInterface.getLastStatus();
+
+        MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
+
+        //if(result == PKT_ACK) {
+        /* Turn on green LED */
+        //    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN0);
+        //    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN1);
+        //} else {
+        /* Turn on red LED */
+        //    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN1);
+        //    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN0);
+        //}
         for ( i = 0; i < 50000; i++ )
             ;
-        i2cInterface.requestData(20, 1);
+        //i2cInterface.requestData(20, 1);
+        RXCounter = 0;
+        canInterface.requestData(5, 1);
+        while ( RXCounter != 5 )
+            ;
+        debugger++;
+        //MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
+
+        MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN1);
     }
 
-    //MAP_PCM_gotoLPM0InterruptSafe( );
+    while ( 1 )
+        MAP_PCM_gotoLPM0InterruptSafe( );
+
 #else
 
     i2cInterface.init(false, 1);
-
+    canInterface.init(false, 1);
     while ( 1 ) {
         MAP_PCM_gotoLPM0InterruptSafe( );
     }
@@ -86,10 +124,10 @@ void HeaderHandle( HeaderPacket * packet ) {
 
     if ( packet->checkCRC( ) ) {
         /* Error! Send NAK */
-        i2cInterface.sendHeader(&NAKPacket);
+        canInterface.sendHeader(&NAKPacket);
     } else {
         /* First of all, send an ACK */
-        i2cInterface.sendHeader(&ACKPacket);
+        canInterface.sendHeader(&ACKPacket);
         switch ( packet->cmd ) {
         case PKT_PING:
             /* Do nothing, only ACK */
@@ -97,7 +135,7 @@ void HeaderHandle( HeaderPacket * packet ) {
         case PKT_DATAPULL:
             /* Generate fake data */
             for ( ii = 0; ii < packet->param[0]; ii++ )
-                i2cInterface.queueData(generateDataPacket(61, true));
+                canInterface.queueData(generateDataPacket(61, true));
             break;
         }
     }
@@ -105,6 +143,7 @@ void HeaderHandle( HeaderPacket * packet ) {
 }
 
 void DataHandle( DataPacket * packet ) {
+    RXCounter++;
     delete packet;
 }
 

@@ -26,12 +26,15 @@ public:
 
     /* The address of this node */
     uint_fast8_t ownAddress;
+
     bool isMaster;
+    uint_fast8_t lastStatus;
 
     /* General fields and methods */
     virtual uint_fast8_t init( bool asMaster, uint_fast8_t ownAddress );
 
     virtual void queueData( DataPacket * );
+    uint_fast8_t getLastStatus( void );
 
     /* Bus MASTER methods */
     virtual uint_fast8_t sendHeader( HeaderPacket * );
@@ -40,6 +43,7 @@ public:
     /* Handlers */
     virtual void setHeaderHandler(void (*)(HeaderPacket *));
     virtual void setDataHandler(void (*)(DataPacket *));
+
 };
 
 
