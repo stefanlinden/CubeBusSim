@@ -30,7 +30,8 @@ void (*can_DataHandler)( DataPacket * );
 CANInterface * canInstance;
 
 uint_fast8_t * rxDataBuffer;
-uint_fast8_t * txDataBuffer;
+MCP_CANMessage * txBuffer;
+
 volatile uint_fast8_t dataRXCount, dataTXCount, debugger;
 
 uint_fast8_t CANInterface::init( bool asMaster, uint_fast8_t ownAddress ) {
@@ -38,10 +39,10 @@ uint_fast8_t CANInterface::init( bool asMaster, uint_fast8_t ownAddress ) {
     isMaster = asMaster;
 
     rxDataBuffer = 0;
-    txDataBuffer = 0;
     dataRXCount = 0;
     dataTXCount = 0;
     debugger = 0;
+    txBuffer = 0;
 
     canInstance = this;
 
@@ -115,7 +116,7 @@ uint_fast8_t CANInterface::requestData( uint_fast8_t howMuch,
     /* Request data packages. One package is 64 bytes in total (including CRC and command byte */
     uint_fast8_t res;
 
-    HeaderPacket * pullRequest = new HeaderPacket(0, 1);
+    HeaderPacket * pullRequest = new HeaderPacket(0, getCANAddress(address));
     pullRequest->setCommand(PKT_DATAPULL, howMuch, 0, 0);
     pullRequest->calculateNewCRC( );
 
@@ -123,48 +124,37 @@ uint_fast8_t CANInterface::requestData( uint_fast8_t howMuch,
     lastStatus = 0;
     res = sendHeader(pullRequest);
 
-
-
     delete pullRequest;
     if ( res != 0 )
         return ERR_TIMEOUT;
 
-    while(lastStatus != 0); //TODO timeout
+    while ( lastStatus != 0 )
+        ; //TODO timeout
     /*if(lastStatus == PKT_ACK)
-        uint_fast8_t t = 0;*/
+     uint_fast8_t t = 0;*/
 
     return 0;
 }
 
 void msgHandler( MCP_CANMessage * msg ) {
-    uint_fast8_t k, ii, lim;
+    uint_fast8_t ii;
 
     if ( msg->data[0] == PKT_DATA ) {
         /* Data packets are split up over CAN, so we need to merge them back together */
-        if ( !rxDataBuffer ) {
-            rxDataBuffer = new uint_fast8_t[63];
-            dataRXCount = 0;
-        }
+        rxDataBuffer = new uint_fast8_t[5];
 
-        lim = dataRXCount * 7;
-        k = 1;
         /* Copy the data */
-        for ( ii = lim; ii < lim + 7; ii++ ) {
-            rxDataBuffer[ii] = msg->data[k];
-            k++;
+        for ( ii = 0; ii < 5; ii++ ) {
+            rxDataBuffer[ii] = msg->data[ii + 1];
         }
-        dataRXCount++;
-        if ( dataRXCount == 7 ) {
-            /* We have just received the final part of this packet */
-            DataPacket * dataPkt = new DataPacket(61, rxDataBuffer);
-            dataPkt->crc = ((uint_fast16_t) rxDataBuffer[61] << 8)
-                    | (rxDataBuffer[62] & 0xFF);
 
-            delete[] rxDataBuffer;
+        DataPacket * dataPkt = new DataPacket(61, rxDataBuffer);
+        dataPkt->crc = ((uint_fast16_t) rxDataBuffer[6] << 8)
+                | (rxDataBuffer[7] & 0xFF);
 
-            rxDataBuffer = 0;
-            can_DataHandler(dataPkt);
-        }
+        delete[] rxDataBuffer;
+
+        can_DataHandler(dataPkt);
     } else if ( msg->data[0] == PKT_ACK ) {
         canInstance->lastStatus = PKT_ACK;
     } else if ( msg->data[0] == PKT_NAK ) {
@@ -176,7 +166,7 @@ void msgHandler( MCP_CANMessage * msg ) {
 
 void CANInterface::queueData( DataPacket * packet ) {
     dataQueue.add(packet);
-    sendData( );
+    //sendData( );
 }
 
 /* The set*Handler methods are overridden here to create a global handle */
@@ -191,60 +181,45 @@ void CANInterface::setDataHandler( void (*handler)( DataPacket * ) ) {
 }
 
 uint_fast8_t CANInterface::sendData( void ) {
-    MCP_CANMessage msg;
     DataPacket * packet;
-    uint_fast8_t res, ii, start;
-    if ( !txDataBuffer && dataQueue.getLength( ) ) {
-        /* If there is nothing being sent AND there is a message in the queue, then start
-         * sending it */
-        packet = dataQueue.pop( );
-        txDataBuffer = new uint_fast8_t[63];
-        for ( ii = 0; ii < 61; ii++ )
-            txDataBuffer[ii] = packet->data[ii];
-        //std::memcpy(txDataBuffer, packet->data,
-        //        packet->length * sizeof(uint_fast8_t));
-        txDataBuffer[61] = ((uint_fast8_t) packet->crc) >> 8;
-        txDataBuffer[62] = (uint_fast8_t) (packet->crc & 0xFF);
-        dataTXCount = 0;
+    uint_fast8_t res, ii;
+
+    if ( !txBuffer) {
+        txBuffer = new MCP_CANMessage;
+
+        if ( dataQueue.getLength( ) ) {
+            /* If there is a message in the queue, then start sending it */
+            packet = dataQueue.pop( );
+        } else if ( !dataQueue.getLength( ) )
+            return 0;
+
+        /* Populate the message */
+        txBuffer->ID = 0; /* Send to the OBC */
+        txBuffer->isExtended = 0;
+        txBuffer->isRequest = 0;
+        txBuffer->length = 8;
+
+        txBuffer->data = new uint_fast8_t[8];
+
+        txBuffer->data[0] = PKT_DATA;
+        for ( ii = 0; ii < 5; ii++ )
+            txBuffer->data[ii + 1] = packet->data[ii];
+        txBuffer->data[6] = ((uint_fast8_t) packet->crc) >> 8;
+        txBuffer->data[7] = (uint_fast8_t) (packet->crc & 0xFF);
         delete packet;
-    } else if ( !txDataBuffer && !dataQueue.getLength( ) )
-        return 0;
-
-    /* Populate the message */
-    msg.ID = 10;
-    msg.isExtended = 0;
-    msg.isRequest = 0;
-    msg.length = 8;
-
-    msg.data = new uint_fast8_t[8];
-
-    //msg.data[1] = txDataBuffer[dataTXCount * 7];
-    msg.data[0] = PKT_DATA;
-
-    start = dataTXCount * 7;
-    for ( ii = 0; ii < 7; ii++ )
-        msg.data[ii + 1] = txDataBuffer[start + ii];
-
+    }
     /* Send the actual message */
-    res = MCP_sendMessage(&msg);
+    res = MCP_sendMessage(txBuffer);
     if ( res ) {
         return ERR_TIMEOUT;
     }
+    debugger++;
 
-    delete[] msg.data;
+    /* Clean up */
+    delete[] txBuffer->data;
+    delete txBuffer;
+    txBuffer = 0;
 
-    //uint_fast8_t regval = 1;
-    /*while(regval) {
-     regval = MCP_readRegister(RTXB0CTRL);
-     }*/
-    //regval = MCP_readRegister(RCANINTF);
-    dataTXCount++;
-
-    if ( dataTXCount == 9 ) {
-        delete[] txDataBuffer;
-        txDataBuffer = 0;
-        dataTXCount = 0;
-    }
     return 0;
 }
 
