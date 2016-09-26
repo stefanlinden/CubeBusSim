@@ -16,10 +16,11 @@
 #include "simpackets.h"
 #include "i2cdriver.h"
 #include "candriver.h"
+#include "usbdriver.h"
 #include "messagequeue.h"
 #include "random.h"
 
-#define ISMASTER
+//#define ISMASTER
 
 /* Interfaces */
 I2CInterface i2cInterface;
@@ -41,8 +42,12 @@ volatile uint_fast8_t RXCounter;
 volatile int debugger;
 
 int main( void ) {
+    int i;
     /* Disabling the Watchdog */
     MAP_WDT_A_holdTimer( );
+
+    MAP_GPIO_setAsOutputPin(GPIO_PORT_P3, GPIO_PIN7);
+    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P3, GPIO_PIN7);
 
     i2cInterface.setDataHandler(DataHandle);
     i2cInterface.setHeaderHandler(HeaderHandle);
@@ -55,8 +60,11 @@ int main( void ) {
     NAKPacket.setCommand(PKT_NAK, 0, 0, 0);
     NAKPacket.calculateNewCRC( );
 
+
 #ifdef ISMASTER
-    int i;
+
+    for( i = 0; i < 5000000; i++);
+
     uint_fast8_t result;
 
     //i2cInterface.init(true, 0);
@@ -78,9 +86,9 @@ int main( void ) {
 
     while ( 1 ) {
         result = 0;
-        /*canInterface.sendHeader(&pingPkt);
+        canInterface.sendHeader(&pingPkt);
         while(!result)
-            result = canInterface.getLastStatus();*/
+            result = canInterface.getLastStatus();
 
         MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
 
@@ -96,11 +104,11 @@ int main( void ) {
         for ( i = 0; i < 50000; i++ )
             ;
         //i2cInterface.requestData(20, 1);
-        RXCounter = 0;
-        canInterface.requestData(10, 1);
-        while ( RXCounter != 10 )
+        //RXCounter = 0;
+        //canInterface.requestData(1, 1);
+        /*while ( RXCounter != 10 )
             ;
-        debugger++;
+        debugger++;*/
         //MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
 
         MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN1);
@@ -110,7 +118,7 @@ int main( void ) {
         MAP_PCM_gotoLPM0InterruptSafe( );
 
 #else
-
+    for( i = 0; i < 50000; i++);
     i2cInterface.init(false, 1);
     canInterface.init(false, 1);
     while ( 1 ) {
@@ -135,7 +143,7 @@ void HeaderHandle( HeaderPacket * packet ) {
         case PKT_DATAPULL:
             /* Generate fake data */
             for ( ii = 0; ii < packet->param[0]; ii++ )
-                canInterface.queueData(generateDataPacket(5, true));
+                canInterface.queueData(generateDataPacket(61, true));
             canInterface.sendData();
             break;
         }

@@ -13,7 +13,7 @@
 
 /* SPI Timing Config */
 const MCP_CANTimingConfig CANTimingConfig = { 20000000, /* Oscillator Frequency */
-8, /* Baud Rate Prescaler */
+32, /* Baud Rate Prescaler */
 1, /* Propagation Delay */
 3, /* Phase Segment 1 */
 3, /* Phase Segment 2 */
@@ -59,7 +59,7 @@ uint_fast8_t CANInterface::init( bool asMaster, uint_fast8_t ownAddress ) {
     /* These interrupts are handled internally, but kept externally for control */
     MCP_enableInterrupt(
             MCP_ISR_RX0IE | MCP_ISR_RX1IE | MCP_ISR_TX0IE | MCP_ISR_TX1IE
-                    | MCP_ISR_TX2IE | MCP_ISR_ERRIE);
+                    | MCP_ISR_TX2IE);
 
     /* Set the handler to be called when a message is received */
     MCP_setReceivedMessageHandler(&msgHandler);
@@ -105,8 +105,9 @@ uint_fast8_t CANInterface::sendHeader( HeaderPacket * packet ) {
 
     lastStatus = 0;
 
-    if ( MCP_sendMessage(&canMsg) )
-        return ERR_TIMEOUT;
+    MCP_sendBulk(&canMsg, 1);
+    //if ( MCP_sendMessage(&canMsg) )
+        //return ERR_TIMEOUT;
 
     return 0;
 }
@@ -182,37 +183,38 @@ void CANInterface::setDataHandler( void (*handler)( DataPacket * ) ) {
 
 uint_fast8_t CANInterface::sendData( void ) {
     DataPacket * packet;
-    uint_fast8_t res, ii;
+    uint_fast8_t ii;
 
-    if ( !txBuffer) {
-        txBuffer = new MCP_CANMessage;
+    //if ( !txBuffer ) {
+    txBuffer = new MCP_CANMessage;
 
-        if ( dataQueue.getLength( ) ) {
-            /* If there is a message in the queue, then start sending it */
-            packet = dataQueue.pop( );
-        } else if ( !dataQueue.getLength( ) )
-            return 0;
+    if ( dataQueue.getLength( ) ) {
+        /* If there is a message in the queue, then start sending it */
+        packet = dataQueue.pop( );
+    } else if ( !dataQueue.getLength( ) )
+        return 0;
 
-        /* Populate the message */
-        txBuffer->ID = 0; /* Send to the OBC */
-        txBuffer->isExtended = 0;
-        txBuffer->isRequest = 0;
-        txBuffer->length = 8;
+    /* Populate the message */
+    txBuffer->ID = 0; /* Send to the OBC */
+    txBuffer->isExtended = 0;
+    txBuffer->isRequest = 0;
+    txBuffer->length = 8;
 
-        txBuffer->data = new uint_fast8_t[8];
+    txBuffer->data = new uint_fast8_t[8];
 
-        txBuffer->data[0] = PKT_DATA;
-        for ( ii = 0; ii < 5; ii++ )
-            txBuffer->data[ii + 1] = packet->data[ii];
-        txBuffer->data[6] = ((uint_fast8_t) packet->crc) >> 8;
-        txBuffer->data[7] = (uint_fast8_t) (packet->crc & 0xFF);
-        delete packet;
-    }
+    txBuffer->data[0] = PKT_DATA;
+    for ( ii = 0; ii < 5; ii++ )
+        txBuffer->data[ii + 1] = packet->data[ii];
+    txBuffer->data[6] = ((uint_fast8_t) packet->crc) >> 8;
+    txBuffer->data[7] = (uint_fast8_t) (packet->crc & 0xFF);
+    delete packet;
+    //}
     /* Send the actual message */
-    res = MCP_sendMessage(txBuffer);
-    if ( res ) {
+    //res = MCP_sendMessage(txBuffer);
+    /*if ( res ) {
         return ERR_TIMEOUT;
-    }
+    }*/
+    MCP_sendBulk(txBuffer, 1);
     debugger++;
 
     /* Clean up */
