@@ -20,7 +20,7 @@
 #include "messagequeue.h"
 #include "random.h"
 
-//#define ISMASTER
+#define ISMASTER
 
 /* Interfaces */
 I2CInterface i2cInterface;
@@ -105,7 +105,7 @@ int main( void ) {
             ;
         //i2cInterface.requestData(20, 1);
         RXCounter = 0;
-        canInterface.requestData(1, 1);
+        canInterface.requestData(2, 1);
         while ( RXCounter != 1 )
             ;
         debugger++;

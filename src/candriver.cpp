@@ -58,7 +58,7 @@ uint_fast8_t CANInterface::init( bool asMaster, uint_fast8_t ownAddress ) {
     /* Register an interrupt on TX0 and RX0 */
     /* These interrupts are handled internally, but kept externally for control */
     MCP_enableInterrupt(
-            MCP_ISR_RX0IE | MCP_ISR_RX1IE);
+    MCP_ISR_RX0IE | MCP_ISR_RX1IE);
 
     /* Set the handler to be called when a message is received */
     MCP_setReceivedMessageHandler(&msgHandler);
@@ -106,7 +106,7 @@ uint_fast8_t CANInterface::sendHeader( HeaderPacket * packet ) {
 
     MCP_sendBulk(&canMsg, 1);
     //if ( MCP_sendMessage(&canMsg) )
-        //return ERR_TIMEOUT;
+    //return ERR_TIMEOUT;
 
     return 0;
 }
@@ -181,44 +181,46 @@ void CANInterface::setDataHandler( void (*handler)( DataPacket * ) ) {
 
 uint_fast8_t CANInterface::sendData( void ) {
     DataPacket * packet;
-    uint_fast8_t ii;
+    uint_fast8_t ii, it, nMessages;
+    MCP_CANMessage * msgList;
 
-    //if ( !txBuffer ) {
-    txBuffer = new MCP_CANMessage;
+    nMessages = dataQueue.getLength( );
+    if ( !nMessages )
+        return 1;
 
-    if ( dataQueue.getLength( ) ) {
-        /* If there is a message in the queue, then start sending it */
+    msgList = new MCP_CANMessage[nMessages];
+
+    for ( it = 0; it < nMessages; it++ ) {
         packet = dataQueue.pop( );
-    } else if ( !dataQueue.getLength( ) )
-        return 0;
 
-    /* Populate the message */
-    txBuffer->ID = 0; /* Send to the OBC */
-    txBuffer->isExtended = 0;
-    txBuffer->isRequest = 0;
-    txBuffer->length = 8;
+        /* Populate the message */
+        msgList[it].ID = 0; /* Send to the OBC */
+        msgList[it].isExtended = 0;
+        msgList[it].isRequest = 0;
+        msgList[it].length = 8;
 
-    txBuffer->data = new uint_fast8_t[8];
+        msgList[it].data = new uint_fast8_t[8];
 
-    txBuffer->data[0] = PKT_DATA;
-    for ( ii = 0; ii < 5; ii++ )
-        txBuffer->data[ii + 1] = packet->data[ii];
-    txBuffer->data[6] = ((uint_fast8_t) packet->crc) >> 8;
-    txBuffer->data[7] = (uint_fast8_t) (packet->crc & 0xFF);
-    delete packet;
+        msgList[it].data[0] = PKT_DATA;
+        for ( ii = 0; ii < 5; ii++ )
+            msgList[it].data[ii + 1] = packet->data[ii];
+        msgList[it].data[6] = ((uint_fast8_t) packet->crc) >> 8;
+        msgList[it].data[7] = (uint_fast8_t) (packet->crc & 0xFF);
+        delete packet;
+    }
     //}
     /* Send the actual message */
     //res = MCP_sendMessage(txBuffer);
     /*if ( res ) {
-        return ERR_TIMEOUT;
-    }*/
-    MCP_sendBulk(txBuffer, 1);
-    debugger++;
+     return ERR_TIMEOUT;
+     }*/
+    MCP_sendBulk(msgList, nMessages);
 
     /* Clean up */
-    delete[] txBuffer->data;
-    delete txBuffer;
-    txBuffer = 0;
+    for(it = 0; it < nMessages; it++) {
+        delete[] msgList[it].data;
+    }
+    delete[] msgList;
 
     return 0;
 }
