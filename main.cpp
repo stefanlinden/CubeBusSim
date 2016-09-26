@@ -86,9 +86,9 @@ int main( void ) {
 
     while ( 1 ) {
         result = 0;
-        canInterface.sendHeader(&pingPkt);
+        /*canInterface.sendHeader(&pingPkt);
         while(!result)
-            result = canInterface.getLastStatus();
+            result = canInterface.getLastStatus();*/
 
         MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
 
@@ -104,11 +104,11 @@ int main( void ) {
         for ( i = 0; i < 50000; i++ )
             ;
         //i2cInterface.requestData(20, 1);
-        //RXCounter = 0;
-        //canInterface.requestData(1, 1);
-        /*while ( RXCounter != 10 )
+        RXCounter = 0;
+        canInterface.requestData(1, 1);
+        while ( RXCounter != 1 )
             ;
-        debugger++;*/
+        debugger++;
         //MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
 
         MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN1);
@@ -143,7 +143,7 @@ void HeaderHandle( HeaderPacket * packet ) {
         case PKT_DATAPULL:
             /* Generate fake data */
             for ( ii = 0; ii < packet->param[0]; ii++ )
-                canInterface.queueData(generateDataPacket(61, true));
+                canInterface.queueData(generateDataPacket(5, true));
             canInterface.sendData();
             break;
         }

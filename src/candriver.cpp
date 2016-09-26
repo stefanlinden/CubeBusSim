@@ -58,8 +58,7 @@ uint_fast8_t CANInterface::init( bool asMaster, uint_fast8_t ownAddress ) {
     /* Register an interrupt on TX0 and RX0 */
     /* These interrupts are handled internally, but kept externally for control */
     MCP_enableInterrupt(
-            MCP_ISR_RX0IE | MCP_ISR_RX1IE | MCP_ISR_TX0IE | MCP_ISR_TX1IE
-                    | MCP_ISR_TX2IE);
+            MCP_ISR_RX0IE | MCP_ISR_RX1IE);
 
     /* Set the handler to be called when a message is received */
     MCP_setReceivedMessageHandler(&msgHandler);
@@ -167,7 +166,6 @@ void msgHandler( MCP_CANMessage * msg ) {
 
 void CANInterface::queueData( DataPacket * packet ) {
     dataQueue.add(packet);
-    //sendData( );
 }
 
 /* The set*Handler methods are overridden here to create a global handle */
