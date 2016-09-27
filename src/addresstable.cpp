@@ -8,9 +8,12 @@
 #include <stdint.h>
 #include "addresstable.h"
 
-const uint_fast8_t i2cAddresses[3] = {0x00, 0x01, 0x02};
-const uint_fast8_t canAddresses[3] = {0x00, 0x10, 0x20};
-const uint_fast8_t usbAddresses[3] = {0x00, 0x01, 0x02};
+/* Addresses:
+ * (0) OBC - (1) EPS - (2) ADCS - (3) PL
+ */
+const uint_fast8_t i2cAddresses[4] = {0x00, 0x01, 0x02, 0x03};
+const uint_fast8_t canAddresses[4] = {0x00, 0x10, 0x20, 0x30};
+const uint_fast8_t usbAddresses[4] = {0x00, 0x01, 0x02, 0x03};
 
 uint_fast8_t getI2CAddress(uint_fast8_t simAddress) {
     return i2cAddresses[simAddress];

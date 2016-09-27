@@ -107,18 +107,18 @@ uint_fast8_t I2CInterface::requestData( uint_fast8_t howMuch, uint_fast8_t addre
 
     /* Load the messages */
     for ( ii = 0; ii < howMuch; ii++ ) {
-        res = wire.requestFrom(getI2CAddress(address), 64);
+        res = wire.requestFrom(getI2CAddress(address), 8);
         if(res == 0)
             return ERR_NAK;
-        dataBuffer = new uint_fast8_t[64];
-        for(readii = 0; readii < 64; readii++)
+        dataBuffer = new uint_fast8_t[8];
+        for(readii = 0; readii < 8; readii++)
             dataBuffer[readii] = wire.read();
 
         /* Create a packet */
-        dataPkt = new DataPacket(61, &dataBuffer[1]);
+        dataPkt = new DataPacket(5, &dataBuffer[1]);
 
         /* Load and check the CRC */
-        dataPkt->crc = ((uint_fast16_t) dataBuffer[62] << 8) | (dataBuffer[63] & 0xFF);
+        dataPkt->crc = ((uint_fast16_t) dataBuffer[6] << 8) | (dataBuffer[7] & 0xFF);
         delete dataBuffer;
         if(dataPkt->checkCRC())
             crcerror = true;

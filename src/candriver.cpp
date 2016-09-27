@@ -13,7 +13,7 @@
 
 /* SPI Timing Config */
 const MCP_CANTimingConfig CANTimingConfig = { 20000000, /* Oscillator Frequency */
-32, /* Baud Rate Prescaler */
+8, /* Baud Rate Prescaler */
 1, /* Propagation Delay */
 3, /* Phase Segment 1 */
 3, /* Phase Segment 2 */
