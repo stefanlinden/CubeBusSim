@@ -40,8 +40,8 @@ void DataHandle( DataPacket * packet );
 void HeaderHandle( HeaderPacket * packet );
 
 /* Some standard packets */
-HeaderPacket ACKPacket(0, 1);
-HeaderPacket NAKPacket(0, 1);
+HeaderPacket ACKPacket(1, 0);
+HeaderPacket NAKPacket(1, 0);
 
 /* Counters */
 volatile uint_fast8_t RXCounter;
@@ -74,10 +74,20 @@ int main( void ) {
 
     doTest = true;
 
+    /* Initialise the LEDs */
+    MAP_GPIO_setAsOutputPin(GPIO_PORT_P2, GPIO_PIN0); /* red LED */
+    MAP_GPIO_setAsOutputPin(GPIO_PORT_P2, GPIO_PIN1); /* green LED */
+    MAP_GPIO_setAsOutputPin(GPIO_PORT_P1, GPIO_PIN0); /* red 'busy' LED */
+    MAP_GPIO_setAsOutputPin(GPIO_PORT_P2, GPIO_PIN2); /* Blue LED */
+
 #if SUBSYSTEM == SUBSYS_OBC
 
     uint_fast8_t result;
     ownAddress = 0;
+
+    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN0);
+    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN1);
+    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN2);
 
     for ( i = 0; i < 5000000; i++ )
         ;
@@ -97,60 +107,56 @@ int main( void ) {
     pingPL.setCommand(PKT_PING, 0, 0, 0);
     pingPL.calculateNewCRC( );
 
-    MAP_GPIO_setAsOutputPin(GPIO_PORT_P2, GPIO_PIN0); /* red LED */
-    MAP_GPIO_setAsOutputPin(GPIO_PORT_P2, GPIO_PIN1); /* green LED */
-    MAP_GPIO_setAsOutputPin(GPIO_PORT_P1, GPIO_PIN0); /* red 'busy' LED */
-    MAP_GPIO_setAsOutputPin(GPIO_PORT_P2, GPIO_PIN2);
-
-    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN0);
-    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN1);
-    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN2);
-
     /* Right before the main loop, we start the 32 bit timer to trigger after 10s */
     packetCounter = 0;
     /*MAP_Timer32_initModule(TIMER32_BASE, TIMER32_PRESCALER_1, TIMER32_32BIT,
-                TIMER32_PERIODIC_MODE);
-    MAP_Timer32_setCount( TIMER32_BASE, 10*48E6 );
-    MAP_Interrupt_enableInterrupt(INT_T32_INT1);
-    MAP_Interrupt_enableMaster();
-    MAP_Timer32_startTimer(TIMER32_BASE, true);*/
+     TIMER32_PERIODIC_MODE);
+     MAP_Timer32_setCount( TIMER32_BASE, 10*48E6 );
+     MAP_Interrupt_enableInterrupt(INT_T32_INT1);
+     MAP_Interrupt_enableMaster();
+     MAP_Timer32_startTimer(TIMER32_BASE, true);*/
 
     while ( 1 ) {
         /*** CAN ***/
         /* PINGs */
-        /*canInterface.sendHeader(&pingADCS);
+        result = 0;
+        canInterface.sendHeader(&pingADCS);
         while ( !result )
             result = canInterface.getLastStatus( );
+
+        result = 0;
         canInterface.sendHeader(&pingEPS);
         while ( !result )
-            result = canInterface.getLastStatus( );
+          result = canInterface.getLastStatus( );
+
+        result = 0;
         canInterface.sendHeader(&pingPL);
         while ( !result )
-            result = canInterface.getLastStatus( );*/
+            result = canInterface.getLastStatus( );
 
         /*** I2C ***/
-        result = i2cInterface.sendHeader(&pingPL);
+        /*result = i2cInterface.sendHeader(&pingADCS);
+         result = i2cInterface.sendHeader(&pingEPS);
+         result = i2cInterface.sendHeader(&pingPL);*/
 
-
-        MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
-
-        //for ( i = 0; i < 100000; i++ )
-        //    ;
+        //MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
+        for ( i = 0; i < 100000; i++ )
+            ;
         //i2cInterface.requestData(20, 1);
         //RXCounter = 0;
         //canInterface.requestData(2, 1);
         //while ( RXCounter != 1 )
         //    ;
-        //MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
+        MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
 
-        MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN1);
+        //MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN1);
         packetCounter++;
-        if(!doTest)
+        if ( !doTest )
             break;
     }
 
     while ( 1 ) {
-        long totalBytes = packetCounter*3*2*8;
+        long totalBytes = packetCounter * 3 * 2 * 8;
         MAP_PCM_gotoLPM0InterruptSafe( );
     }
 
@@ -162,9 +168,13 @@ int main( void ) {
     ownAddress = 3;
 #endif
 #if SUBSYSTEM != SUBSYS_OBC
+    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN0);
+    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN0);
+    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN1);
+    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN2);
     for( i = 0; i < 50000; i++);
-    i2cInterface.init(false, getI2CAddress(ownAddress));
-    canInterface.init(false, getCANAddress(ownAddress));
+    i2cInterface.init(false, ownAddress);
+    canInterface.init(false, ownAddress);
     while ( 1 ) {
         MAP_PCM_gotoLPM0InterruptSafe( );
     }
@@ -174,12 +184,17 @@ int main( void ) {
 void HeaderHandle( HeaderPacket * packet ) {
     uint_fast8_t ii;
 
+#if SUBSYSTEM != SUBSYS_OBC
+    /* toggle the red LED to let us know its running */
+    MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
+#endif
+
     if ( packet->checkCRC( ) ) {
         /* Error! Send NAK */
-        i2cInterface.sendHeader(&NAKPacket);
+        canInterface.sendHeader(&NAKPacket);
     } else {
         /* First of all, send an ACK */
-        i2cInterface.sendHeader(&ACKPacket);
+        canInterface.sendHeader(&ACKPacket);
         switch ( packet->cmd ) {
         case PKT_PING:
         case PKT_SWITCHON:

@@ -5,6 +5,7 @@
  *      Author: Stefan van der Linden
  */
 
+#include <stdio.h>
 #include <mcp2515.h>
 #include "candriver.h"
 #include "simpackets.h"
@@ -37,6 +38,7 @@ volatile uint_fast8_t dataRXCount, dataTXCount, debugger;
 uint_fast8_t CANInterface::init( bool asMaster, uint_fast8_t ownAddress ) {
     uint_fast8_t canAddress;
     isMaster = asMaster;
+    this->ownAddress = ownAddress;
 
     rxDataBuffer = 0;
     dataRXCount = 0;
@@ -83,9 +85,21 @@ uint_fast8_t CANInterface::init( bool asMaster, uint_fast8_t ownAddress ) {
         MCP_writeRegister(RRXM0SIDH, 0xFF);
         MCP_writeRegister(RRXM0SIDL, 0xE0);
 
+        MCP_writeRegister(RRXM1SIDH, 0xFF);
+        MCP_writeRegister(RRXM1SIDL, 0xE0);
+
+        canAddress = getCANAddress(ownAddress);
         MCP_writeRegister(RRXF0SIDL, canAddress << 5);
         MCP_writeRegister(RRXF0SIDH, (canAddress & 0xFF) >> 3);
+
+        MCP_writeRegister(RRXF1SIDL, canAddress << 5);
+        MCP_writeRegister(RRXF1SIDH, (canAddress & 0xFF) >> 3);
     }
+
+    //printf("RRXF0SIDLL: 0x%x\n", MCP_readRegister(RRXF0SIDL));
+    //printf("RRXF0SIDH: 0x%x\n", MCP_readRegister(RRXF0SIDH));
+    //printf("RRXM1SIDH: 0x%x\n", MCP_readRegister(RRXM1SIDH));
+    //printf("RRXM0SIDL: 0x%x\n", MCP_readRegister(RRXM1SIDL));
     /* Go into NORMAL mode */
     MCP_setMode(MODE_NORMAL);
     return 0;
@@ -105,6 +119,7 @@ uint_fast8_t CANInterface::sendHeader( HeaderPacket * packet ) {
     lastStatus = 0;
 
     MCP_sendBulk(&canMsg, 1);
+    //delete[] canMsg.data;
     //if ( MCP_sendMessage(&canMsg) )
     //return ERR_TIMEOUT;
 
@@ -138,6 +153,8 @@ uint_fast8_t CANInterface::requestData( uint_fast8_t howMuch,
 
 void msgHandler( MCP_CANMessage * msg ) {
     uint_fast8_t ii;
+
+    //printf("RRXB1CTRL: 0x%x\n", MCP_readRegister(RRXB1CTRL));
 
     if ( msg->data[0] == PKT_DATA ) {
         /* Data packets are split up over CAN, so we need to merge them back together */
