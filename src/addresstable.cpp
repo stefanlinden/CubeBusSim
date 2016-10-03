@@ -11,9 +11,10 @@
 /* Addresses:
  * (0) OBC - (1) EPS - (2) ADCS - (3) PL
  */
-const uint_fast8_t i2cAddresses[4] = {0x00, 0x01, 0x02, 0x03};
-const uint_fast8_t canAddresses[4] = {0x00, 0x10, 0x20, 0x30};
-const uint_fast8_t usbAddresses[4] = {0x00, 0x01, 0x02, 0x03};
+const uint_fast8_t i2cAddresses[4]      = {0x00, 0x01, 0x02, 0x03};
+const uint_fast8_t canAddresses[4]      = {0x00, 0x10, 0x20, 0x30};
+const uint_fast8_t usbAddresses[4]      = {0x00, 0x01, 0x02, 0x03};
+const uint_fast8_t rs485Addresses[4]    = {0x00, 0x01, 0x02, 0x03};
 
 uint_fast8_t getI2CAddress(uint_fast8_t simAddress) {
     return i2cAddresses[simAddress];
@@ -25,4 +26,8 @@ uint_fast8_t getCANAddress(uint_fast8_t simAddress) {
 
 uint_fast8_t getUSBAddress(uint_fast8_t simAddress) {
     return usbAddresses[simAddress];
+}
+
+uint_fast8_t getRS485Address(uint_fast8_t simAddress) {
+    return rs485Addresses[simAddress];
 }

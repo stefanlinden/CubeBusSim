@@ -87,7 +87,6 @@ uint_fast8_t I2CInterface::sendHeader( HeaderPacket * header ) {
 }
 
 uint_fast8_t I2CInterface::requestData( uint_fast8_t howMuch, uint_fast8_t address ) {
-    /* Request data packages. One package is 64 bytes in total (including CRC and command byte */
     uint_fast8_t ii, res, readii;
     uint_fast8_t * dataBuffer;
     DataPacket * dataPkt;

@@ -59,6 +59,7 @@ extern unsigned long __STACK_END;
 //void EUSCIB1_IRQHandler( void );
 extern void GPIOP3_ISR( void );
 extern void T32_INT1_IRQHandler (void);
+extern void EUSCI_A2_IRQHandler( void );
 
 /* Interrupt vector table.  Note that the proper constructs must be placed on this to */
 /* ensure that it ends up at physical address 0x0000.0000 or at the start of          */
@@ -103,7 +104,7 @@ void (* const interruptVectors[])(void) =
     defaultISR,                             /* EUSCIA0 ISR               */
     defaultISR,                             /* EUSCIA1 ISR               */
     defaultISR,                             /* EUSCIA2 ISR               */
-    defaultISR,                             /* EUSCIA3 ISR               */
+    EUSCI_A2_IRQHandler,                             /* EUSCIA3 ISR               */
     defaultISR,                             /* EUSCIB0 ISR               */
     defaultISR,                             /* EUSCIB1 ISR               */
     defaultISR,                             /* EUSCIB2 ISR               */
