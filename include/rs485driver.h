@@ -23,6 +23,8 @@ public:
 
     void setHeaderHandler(void (*)(HeaderPacket *));
     void setDataHandler(void (*)(DataPacket *));
+
+    uint_fast8_t sendData( void );
 };
 
 #endif /* INCLUDE_RS485DRIVER_H_ */

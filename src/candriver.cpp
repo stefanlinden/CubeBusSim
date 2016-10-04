@@ -225,12 +225,6 @@ uint_fast8_t CANInterface::sendData( void ) {
         msgList[it].data[7] = (uint_fast8_t) (packet->crc & 0xFF);
         delete packet;
     }
-    //}
-    /* Send the actual message */
-    //res = MCP_sendMessage(txBuffer);
-    /*if ( res ) {
-     return ERR_TIMEOUT;
-     }*/
     MCP_sendBulk(msgList, nMessages);
 
     /* Clean up */

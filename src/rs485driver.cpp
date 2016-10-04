@@ -127,7 +127,7 @@ void transmitBytes( uint_fast8_t * data, uint_fast8_t length ) {
 
     /* Make sure the 'transmit complete' ISR is reset */
 
-    UCA2IFG &= ~BIT3;
+
     /* Loop through the bytes, transmitting each one */
     for ( ii = 0; ii < length; ii++ ) {
         /* Block until we can write to the buffer */
@@ -137,6 +137,7 @@ void transmitBytes( uint_fast8_t * data, uint_fast8_t length ) {
 
         /* Transmit the byte */
         MAP_UART_transmitData(EUSCI_A2_BASE, data[ii]);
+        UCA2IFG &= ~BIT3;
     }
 
     /* Block until everything has been transmitted */
@@ -145,6 +146,34 @@ void transmitBytes( uint_fast8_t * data, uint_fast8_t length ) {
 
     /* Disable TX */
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P3, GPIO_PIN0);
+}
+
+uint_fast8_t RS485Interface::sendData( void ) {
+    DataPacket * packet;
+    uint_fast8_t txBuffer[8];
+    uint_fast8_t ii, it, nMessages;
+
+    nMessages = dataQueue.getLength( );
+    if ( !nMessages )
+        return 1;
+
+    for ( it = 0; it < nMessages; it++ ) {
+        packet = dataQueue.pop( );
+
+        txBuffer[0] = PKT_DATA;
+        for(ii = 0; ii < 5; ii++)
+            txBuffer[ii + 1] = packet->data[ii];
+        txBuffer[6] = ((uint_fast8_t) packet->crc) >> 8;
+        txBuffer[7] = (uint_fast8_t) (packet->crc & 0xFF);
+
+        /* Transmit the tx buffer */
+        transmitBytes(txBuffer, 8);
+
+        /* Clean up */
+        delete packet;
+    }
+
+    return 0;
 }
 
 
@@ -168,6 +197,7 @@ void EUSCI_A2_IRQHandler( void ) {
                         | (rxBuffer[7] & 0xFF);
                 rxPtr = 0;
                 requestDataCtr--;
+                rs485_DataHandler(dataPkt);
                 return;
             }
 

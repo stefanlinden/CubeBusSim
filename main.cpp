@@ -23,14 +23,12 @@
 #include "addresstable.h"
 
 /* Select the correct subsystem here */
-#define SUBSYSTEM SUBSYS_OBC
+//#define SUBSYSTEM SUBSYS_OBC
 //#define SUBSYSTEM SUBSYS_EPS
 //#define SUBSYSTEM SUBSYS_ADCS
-//#define SUBSYSTEM SUBSYS_PL
+#define SUBSYSTEM SUBSYS_PL
 
 /* Interfaces */
-//I2CInterface i2cInterface;
-//CANInterface canInterface;
 RS485Interface rs485Interface;
 
 /* Prototypes */
@@ -47,7 +45,7 @@ HeaderPacket NAKPacket(1, 0);
 /* Counters */
 volatile uint_fast8_t RXCounter;
 volatile int ownAddress;
-volatile long packetCounter;
+volatile long loopCounter;
 
 /* Variables for testing */
 volatile bool doTest;
@@ -58,14 +56,6 @@ int main( void ) {
     /* Disabling the Watchdog */
     MAP_WDT_A_holdTimer( );
 
-    // Initialise the USB CS (to avoid floating)
-    //MAP_GPIO_setAsOutputPin(GPIO_PORT_P3, GPIO_PIN7);
-    //MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P3, GPIO_PIN7);
-
-    //i2cInterface.setDataHandler(DataHandle);
-    //i2cInterface.setHeaderHandler(HeaderHandle);
-    //canInterface.setDataHandler(DataHandle);
-    //canInterface.setHeaderHandler(HeaderHandle);
     rs485Interface.setDataHandler(DataHandle);
     rs485Interface.setHeaderHandler(HeaderHandle);
 
@@ -90,13 +80,12 @@ int main( void ) {
 
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN0);
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN1);
+    //MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN2);
     MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN2);
 
     for ( i = 0; i < 5000000; i++ )
         ;
 
-    //i2cInterface.init(true, 0);
-    //canInterface.init(true, 0);
     rs485Interface.init(true, 0);
 
     HeaderPacket pingADCS(0, SUBSYS_ADCS);
@@ -111,37 +100,18 @@ int main( void ) {
     pingPL.setCommand(PKT_PING, 0, 0, 0);
     pingPL.calculateNewCRC( );
 
+    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN2);
+
     /* Right before the main loop, we start the 32 bit timer to trigger after 10s */
-    packetCounter = 0;
-    /*MAP_Timer32_initModule(TIMER32_BASE, TIMER32_PRESCALER_1, TIMER32_32BIT,
-     TIMER32_PERIODIC_MODE);
-     MAP_Timer32_setCount( TIMER32_BASE, 10*48E6 );
-     MAP_Interrupt_enableInterrupt(INT_T32_INT1);
-     MAP_Interrupt_enableMaster();
-     MAP_Timer32_startTimer(TIMER32_BASE, true);*/
+    loopCounter = 0;
+    MAP_Timer32_initModule(TIMER32_BASE, TIMER32_PRESCALER_1, TIMER32_32BIT,
+    TIMER32_PERIODIC_MODE);
+    MAP_Timer32_setCount( TIMER32_BASE, 10 * 48E6);
+    MAP_Interrupt_enableInterrupt(INT_T32_INT1);
+    MAP_Interrupt_enableMaster( );
+    MAP_Timer32_startTimer(TIMER32_BASE, true);
 
     while ( 1 ) {
-        /*** CAN ***/
-        /* PINGs */
-        /*result = 0;
-         canInterface.sendHeader(&pingADCS);
-         while ( !result )
-         result = canInterface.getLastStatus( );
-
-         result = 0;
-         canInterface.sendHeader(&pingEPS);
-         while ( !result )
-         result = canInterface.getLastStatus( );
-
-         result = 0;
-         canInterface.sendHeader(&pingPL);
-         while ( !result )
-         result = canInterface.getLastStatus( );*/
-
-        /*** I2C ***/
-        /*result = i2cInterface.sendHeader(&pingADCS);
-         result = i2cInterface.sendHeader(&pingEPS);
-         result = i2cInterface.sendHeader(&pingPL);*/
 
         /**** RS485 ****/
         result = 0;
@@ -149,25 +119,35 @@ int main( void ) {
         while ( !result )
             result = rs485Interface.getLastStatus( );
 
-        //MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
-        for ( i = 0; i < 50000; i++ )
-            ;
+        /*RXCounter = 0;
+        rs485Interface.requestData(20, SUBSYS_PL);
+        while ( RXCounter != 20 )
+            ;*/
+
+        //for ( i = 0; i < 50000; i++ )
+        //    ;
         //i2cInterface.requestData(20, 1);
         //RXCounter = 0;
         //canInterface.requestData(2, 1);
         //while ( RXCounter != 1 )
         //    ;
+
+        /* Toggle the LED to show activity */
         MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
 
-        //MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN1);
-        packetCounter++;
+        loopCounter++;
         if ( !doTest )
             break;
     }
 
     while ( 1 ) {
-        long totalBytes = packetCounter * 3 * 2 * 8;
-        MAP_PCM_gotoLPM0InterruptSafe( );
+        /* Data requesting */
+        //long totalBytes = loopCounter * 8 * 21;
+
+        /* Pinging */
+        long totalBytes = loopCounter * 8 * 2;
+        printf("Total number of bytes: %d\n", totalBytes);
+        MAP_PCM_gotoLPM0( );
     }
 
 #elif SUBSYSTEM == SUBSYS_EPS
@@ -180,11 +160,11 @@ int main( void ) {
 #if SUBSYSTEM != SUBSYS_OBC
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN0);
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN0);
-    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN1);
+    //MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN1);
+    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN1);
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN2);
+
     for( i = 0; i < 50000; i++);
-    //i2cInterface.init(false, ownAddress);
-    //canInterface.init(false, ownAddress);
     rs485Interface.init(false, ownAddress);
     while ( 1 ) {
         MAP_PCM_gotoLPM0InterruptSafe( );
@@ -197,7 +177,7 @@ void HeaderHandle( HeaderPacket * packet ) {
 
 #if SUBSYSTEM != SUBSYS_OBC
     /* toggle the red LED to let us know its running */
-    MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
+    //MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
 #endif
 
     if ( packet->checkCRC( ) ) {
@@ -216,7 +196,7 @@ void HeaderHandle( HeaderPacket * packet ) {
             /* Generate fake data */
             for ( ii = 0; ii < packet->param[0]; ii++ )
                 rs485Interface.queueData(generateDataPacket(5, true));
-            //rs485Interface.sendData( );
+            rs485Interface.sendData( );
             break;
         }
     }
@@ -256,7 +236,7 @@ void T32_INT1_IRQHandler( void ) {
     MAP_Timer32_haltTimer(TIMER32_BASE);
     MAP_Timer32_clearInterruptFlag(TIMER32_BASE);
     doTest = false;
-    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN2);
+    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN2);
 }
 #ifdef __cplusplus
 }
