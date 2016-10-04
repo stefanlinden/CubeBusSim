@@ -103,8 +103,8 @@ void (* const interruptVectors[])(void) =
     defaultISR,                             /* TA3_N ISR                 */
     defaultISR,                             /* EUSCIA0 ISR               */
     defaultISR,                             /* EUSCIA1 ISR               */
-    defaultISR,                             /* EUSCIA2 ISR               */
-    EUSCI_A2_IRQHandler,                             /* EUSCIA3 ISR               */
+    EUSCI_A2_IRQHandler,                             /* EUSCIA2 ISR               */
+    defaultISR,                             /* EUSCIA3 ISR               */
     defaultISR,                             /* EUSCIB0 ISR               */
     defaultISR,                             /* EUSCIB1 ISR               */
     defaultISR,                             /* EUSCIB2 ISR               */

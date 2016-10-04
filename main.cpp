@@ -16,7 +16,7 @@
 #include "simpackets.h"
 #include "i2cdriver.h"
 #include "candriver.h"
-#include "usbdriver.h"
+#include "rs485driver.h"
 #include "messagequeue.h"
 #include "random.h"
 #include "CubeBusSim.h"
@@ -29,8 +29,9 @@
 //#define SUBSYSTEM SUBSYS_PL
 
 /* Interfaces */
-I2CInterface i2cInterface;
-CANInterface canInterface;
+//I2CInterface i2cInterface;
+//CANInterface canInterface;
+RS485Interface rs485Interface;
 
 /* Prototypes */
 DataPacket * generateDataPacket( uint_fast8_t, bool );
@@ -58,13 +59,15 @@ int main( void ) {
     MAP_WDT_A_holdTimer( );
 
     // Initialise the USB CS (to avoid floating)
-    MAP_GPIO_setAsOutputPin(GPIO_PORT_P3, GPIO_PIN7);
-    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P3, GPIO_PIN7);
+    //MAP_GPIO_setAsOutputPin(GPIO_PORT_P3, GPIO_PIN7);
+    //MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P3, GPIO_PIN7);
 
-    i2cInterface.setDataHandler(DataHandle);
-    i2cInterface.setHeaderHandler(HeaderHandle);
-    canInterface.setDataHandler(DataHandle);
-    canInterface.setHeaderHandler(HeaderHandle);
+    //i2cInterface.setDataHandler(DataHandle);
+    //i2cInterface.setHeaderHandler(HeaderHandle);
+    //canInterface.setDataHandler(DataHandle);
+    //canInterface.setHeaderHandler(HeaderHandle);
+    rs485Interface.setDataHandler(DataHandle);
+    rs485Interface.setHeaderHandler(HeaderHandle);
 
     /* Generate the standard packets */
     ACKPacket.setCommand(PKT_ACK, 0, 0, 0);
@@ -92,8 +95,9 @@ int main( void ) {
     for ( i = 0; i < 5000000; i++ )
         ;
 
-    i2cInterface.init(true, 0);
-    canInterface.init(true, 0);
+    //i2cInterface.init(true, 0);
+    //canInterface.init(true, 0);
+    rs485Interface.init(true, 0);
 
     HeaderPacket pingADCS(0, SUBSYS_ADCS);
     pingADCS.setCommand(PKT_PING, 0, 0, 0);
@@ -119,28 +123,34 @@ int main( void ) {
     while ( 1 ) {
         /*** CAN ***/
         /* PINGs */
-        result = 0;
-        canInterface.sendHeader(&pingADCS);
-        while ( !result )
-            result = canInterface.getLastStatus( );
+        /*result = 0;
+         canInterface.sendHeader(&pingADCS);
+         while ( !result )
+         result = canInterface.getLastStatus( );
 
-        result = 0;
-        canInterface.sendHeader(&pingEPS);
-        while ( !result )
-          result = canInterface.getLastStatus( );
+         result = 0;
+         canInterface.sendHeader(&pingEPS);
+         while ( !result )
+         result = canInterface.getLastStatus( );
 
-        result = 0;
-        canInterface.sendHeader(&pingPL);
-        while ( !result )
-            result = canInterface.getLastStatus( );
+         result = 0;
+         canInterface.sendHeader(&pingPL);
+         while ( !result )
+         result = canInterface.getLastStatus( );*/
 
         /*** I2C ***/
         /*result = i2cInterface.sendHeader(&pingADCS);
          result = i2cInterface.sendHeader(&pingEPS);
          result = i2cInterface.sendHeader(&pingPL);*/
 
+        /**** RS485 ****/
+        result = 0;
+        rs485Interface.sendHeader(&pingPL);
+        while ( !result )
+            result = rs485Interface.getLastStatus( );
+
         //MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
-        for ( i = 0; i < 100000; i++ )
+        for ( i = 0; i < 50000; i++ )
             ;
         //i2cInterface.requestData(20, 1);
         //RXCounter = 0;
@@ -173,8 +183,9 @@ int main( void ) {
     MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN1);
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN2);
     for( i = 0; i < 50000; i++);
-    i2cInterface.init(false, ownAddress);
-    canInterface.init(false, ownAddress);
+    //i2cInterface.init(false, ownAddress);
+    //canInterface.init(false, ownAddress);
+    rs485Interface.init(false, ownAddress);
     while ( 1 ) {
         MAP_PCM_gotoLPM0InterruptSafe( );
     }
@@ -191,10 +202,10 @@ void HeaderHandle( HeaderPacket * packet ) {
 
     if ( packet->checkCRC( ) ) {
         /* Error! Send NAK */
-        canInterface.sendHeader(&NAKPacket);
+        rs485Interface.sendHeader(&NAKPacket);
     } else {
         /* First of all, send an ACK */
-        canInterface.sendHeader(&ACKPacket);
+        rs485Interface.sendHeader(&ACKPacket);
         switch ( packet->cmd ) {
         case PKT_PING:
         case PKT_SWITCHON:
@@ -204,8 +215,8 @@ void HeaderHandle( HeaderPacket * packet ) {
         case PKT_DATAPULL:
             /* Generate fake data */
             for ( ii = 0; ii < packet->param[0]; ii++ )
-                canInterface.queueData(generateDataPacket(5, true));
-            canInterface.sendData( );
+                rs485Interface.queueData(generateDataPacket(5, true));
+            //rs485Interface.sendData( );
             break;
         }
     }

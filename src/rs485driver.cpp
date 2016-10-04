@@ -59,13 +59,13 @@ uint_fast8_t RS485Interface::init( bool asMaster, uint_fast8_t ownAddress ) {
     /* Configuring UART Module */
     MAP_UART_initModule(EUSCI_A2_BASE, &uartConfig_RS485);
 
+    /* Enable UART module */
+    MAP_UART_enableModule(EUSCI_A2_BASE);
+
     /* Enable interrupts */
     MAP_UART_enableInterrupt(EUSCI_A2_BASE, EUSCI_A_UART_RECEIVE_INTERRUPT);
     MAP_Interrupt_enableInterrupt(INT_EUSCIA2);
     MAP_Interrupt_enableMaster( );
-
-    /* Enable UART module */
-    MAP_UART_enableModule(EUSCI_A2_BASE);
 
     /* Enable the RE/DE pin and set to RX (low). Pin is active high for TX */
     MAP_GPIO_setAsOutputPin(GPIO_PORT_P3, GPIO_PIN0);
@@ -114,9 +114,7 @@ uint_fast8_t RS485Interface::requestData( uint_fast8_t howMuch,
         return ERR_TIMEOUT;
 
     while ( lastStatus != 0 )
-        ; //TODO timeout
-    /*if(lastStatus == PKT_ACK)
-     uint_fast8_t t = 0;*/
+        ;
 
     return 0;
 }
@@ -127,6 +125,9 @@ void transmitBytes( uint_fast8_t * data, uint_fast8_t length ) {
     /* Enable TX */
     MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P3, GPIO_PIN0);
 
+    /* Make sure the 'transmit complete' ISR is reset */
+
+    UCA2IFG &= ~BIT3;
     /* Loop through the bytes, transmitting each one */
     for ( ii = 0; ii < length; ii++ ) {
         /* Block until we can write to the buffer */
@@ -139,13 +140,13 @@ void transmitBytes( uint_fast8_t * data, uint_fast8_t length ) {
     }
 
     /* Block until everything has been transmitted */
-    while ( !MAP_UART_getInterruptStatus(EUSCI_A2_BASE,
-    EUSCI_A_UART_TRANSMIT_COMPLETE_INTERRUPT_FLAG) )
-        ;
+    //while ( !(UCA2IFG & BIT3) );
+    while(UCA2STATW & BIT0);
 
     /* Disable TX */
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P3, GPIO_PIN0);
 }
+
 
 /* Interrupt handlers */
 extern "C" {
