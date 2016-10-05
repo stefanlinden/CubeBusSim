@@ -16,8 +16,8 @@
 const MCP_CANTimingConfig CANTimingConfig = { 20000000, /* Oscillator Frequency */
 8, /* Baud Rate Prescaler */
 1, /* Propagation Delay */
-3, /* Phase Segment 1 */
-3, /* Phase Segment 2 */
+1, /* Phase Segment 1 */
+1, /* Phase Segment 2 */
 1 /* Synchronisation Jump Width */
 };
 

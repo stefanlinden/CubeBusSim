@@ -46,10 +46,10 @@ HeaderPacket NAKPacket(1, 0);
 /* Counters */
 volatile uint_fast8_t RXCounter;
 volatile int ownAddress;
-volatile long packetCounter;
+volatile long loopCounter;
 
 /* Variables for testing */
-volatile bool doTest;
+volatile bool doTest, doSleep;
 
 int main( void ) {
     int i;
@@ -73,6 +73,7 @@ int main( void ) {
     NAKPacket.calculateNewCRC( );
 
     doTest = true;
+    doSleep = true;
 
     /* Initialise the LEDs */
     MAP_GPIO_setAsOutputPin(GPIO_PORT_P2, GPIO_PIN0); /* red LED */
@@ -87,10 +88,11 @@ int main( void ) {
 
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN0);
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN1);
-    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN2);
+    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN2);
+    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN0);
 
-    for ( i = 0; i < 5000000; i++ )
-        ;
+    //for ( i = 0; i < 5000000; i++ )
+    //    ;
 
     i2cInterface.init(true, 0);
     canInterface.init(true, 0);
@@ -107,56 +109,69 @@ int main( void ) {
     pingPL.setCommand(PKT_PING, 0, 0, 0);
     pingPL.calculateNewCRC( );
 
+    /* Start a timer for sleeping until starting */
+
+    MAP_Timer32_initModule(TIMER32_BASE, TIMER32_PRESCALER_1, TIMER32_32BIT,
+    TIMER32_PERIODIC_MODE);
+    MAP_Timer32_setCount( TIMER32_BASE, 5 * 48E6);
+    MAP_Interrupt_enableInterrupt(INT_T32_INT1);
+    MAP_Interrupt_enableMaster( );
+    MAP_Timer32_startTimer(TIMER32_BASE, true);
+
+    while(doSleep) {
+        MAP_PCM_gotoLPM0( );
+    }
+
     /* Right before the main loop, we start the 32 bit timer to trigger after 10s */
-    packetCounter = 0;
-    /*MAP_Timer32_initModule(TIMER32_BASE, TIMER32_PRESCALER_1, TIMER32_32BIT,
-     TIMER32_PERIODIC_MODE);
-     MAP_Timer32_setCount( TIMER32_BASE, 10*48E6 );
-     MAP_Interrupt_enableInterrupt(INT_T32_INT1);
-     MAP_Interrupt_enableMaster();
-     MAP_Timer32_startTimer(TIMER32_BASE, true);*/
+    loopCounter = 0;
+    MAP_Timer32_setCount( TIMER32_BASE, 10 * 48E6);
+    MAP_Interrupt_enableInterrupt(INT_T32_INT1);
+    MAP_Interrupt_enableMaster( );
+    MAP_Timer32_startTimer(TIMER32_BASE, true);
 
     while ( 1 ) {
+        if ( !doTest )
+            break;
+
         /*** CAN ***/
         /* PINGs */
-        result = 0;
-        canInterface.sendHeader(&pingADCS);
-        while ( !result )
-            result = canInterface.getLastStatus( );
+        /*result = 0;
+         canInterface.sendHeader(&pingADCS);
+         while ( !result )
+         result = canInterface.getLastStatus( );
 
-        result = 0;
-        canInterface.sendHeader(&pingEPS);
-        while ( !result )
-          result = canInterface.getLastStatus( );
+         result = 0;
+         canInterface.sendHeader(&pingEPS);
+         while ( !result )
+         result = canInterface.getLastStatus( );*/
 
-        result = 0;
-        canInterface.sendHeader(&pingPL);
-        while ( !result )
-            result = canInterface.getLastStatus( );
+         result = 0;
+         canInterface.sendHeader(&pingPL);
+         while ( !result )
+         result = canInterface.getLastStatus( );
 
         /*** I2C ***/
-        /*result = i2cInterface.sendHeader(&pingADCS);
-         result = i2cInterface.sendHeader(&pingEPS);
-         result = i2cInterface.sendHeader(&pingPL);*/
+        //result = i2cInterface.sendHeader(&pingADCS);
+        //result = i2cInterface.sendHeader(&pingEPS);
+        //result = i2cInterface.sendHeader(&pingPL);
 
         //MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
-        for ( i = 0; i < 100000; i++ )
-            ;
+        /*for ( i = 0; i < 100000; i++ )
+            ;*/
         //i2cInterface.requestData(20, 1);
         //RXCounter = 0;
         //canInterface.requestData(2, 1);
         //while ( RXCounter != 1 )
         //    ;
-        MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
+        //MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
 
         //MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN1);
-        packetCounter++;
-        if ( !doTest )
-            break;
+        loopCounter++;
     }
 
     while ( 1 ) {
-        long totalBytes = packetCounter * 3 * 2 * 8;
+        long totalBytes = loopCounter * 2 * 8;
+        //printf("Total number of bytes: %d\n", totalBytes);
         MAP_PCM_gotoLPM0InterruptSafe( );
     }
 
@@ -170,7 +185,7 @@ int main( void ) {
 #if SUBSYSTEM != SUBSYS_OBC
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN0);
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN0);
-    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN1);
+    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN1);
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN2);
     for( i = 0; i < 50000; i++);
     i2cInterface.init(false, ownAddress);
@@ -186,7 +201,7 @@ void HeaderHandle( HeaderPacket * packet ) {
 
 #if SUBSYSTEM != SUBSYS_OBC
     /* toggle the red LED to let us know its running */
-    MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
+    //MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
 #endif
 
     if ( packet->checkCRC( ) ) {
@@ -244,6 +259,10 @@ void T32_INT1_IRQHandler( void ) {
     /* Handles the triggering of the 32 bit timer */
     MAP_Timer32_haltTimer(TIMER32_BASE);
     MAP_Timer32_clearInterruptFlag(TIMER32_BASE);
+    if(doSleep) {
+        doSleep = false;
+        return;
+    }
     doTest = false;
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN2);
 }
