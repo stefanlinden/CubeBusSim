@@ -10,23 +10,21 @@
 #include "msp.h"
 #include "driverlib.h"
 #include "DWire.h"
-#include "max3421e.h"
 #include "mcp2515.h"
 #include "delay.h"
 #include "simpackets.h"
 #include "i2cdriver.h"
 #include "candriver.h"
-#include "usbdriver.h"
 #include "messagequeue.h"
 #include "random.h"
 #include "CubeBusSim.h"
 #include "addresstable.h"
 
 /* Select the correct subsystem here */
-#define SUBSYSTEM SUBSYS_OBC
+//#define SUBSYSTEM SUBSYS_OBC
 //#define SUBSYSTEM SUBSYS_EPS
 //#define SUBSYSTEM SUBSYS_ADCS
-//#define SUBSYSTEM SUBSYS_PL
+#define SUBSYSTEM SUBSYS_PL
 
 /* Interfaces */
 I2CInterface i2cInterface;
