@@ -19,6 +19,8 @@
 #include "random.h"
 #include "CubeBusSim.h"
 #include "addresstable.h"
+#include "serialcom.h"
+#include "serialmenu.h"
 
 /* Select the correct subsystem here */
 //#define SUBSYSTEM SUBSYS_OBC
@@ -49,11 +51,18 @@ volatile long loopCounter;
 /* Variables for testing */
 volatile bool doTest, doSleep;
 
+/* Boot Counter */
+#pragma DATA_SECTION(".bootCount");
+volatile uint32_t bootCount;
+
 int main( void ) {
     int i;
 
     /* Disabling the Watchdog */
     MAP_WDT_A_holdTimer( );
+
+    /* Increment the boot counter */
+    bootCount++;
 
     // Initialise the USB CS (to avoid floating)
     MAP_GPIO_setAsOutputPin(GPIO_PORT_P3, GPIO_PIN7);
@@ -79,6 +88,12 @@ int main( void ) {
     MAP_GPIO_setAsOutputPin(GPIO_PORT_P1, GPIO_PIN0); /* red 'busy' LED */
     MAP_GPIO_setAsOutputPin(GPIO_PORT_P2, GPIO_PIN2); /* Blue LED */
 
+    Serial_init();
+
+    while(1) {
+    	MAP_PCM_gotoLPM0();
+    }
+
 #if SUBSYSTEM == SUBSYS_OBC
 
     uint_fast8_t result;
@@ -88,9 +103,6 @@ int main( void ) {
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN1);
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN2);
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN0);
-
-    //for ( i = 0; i < 5000000; i++ )
-    //    ;
 
     i2cInterface.init(true, 0);
     canInterface.init(true, 0);
@@ -107,71 +119,6 @@ int main( void ) {
     pingPL.setCommand(PKT_PING, 0, 0, 0);
     pingPL.calculateNewCRC( );
 
-    /* Start a timer for sleeping until starting */
-
-    MAP_Timer32_initModule(TIMER32_BASE, TIMER32_PRESCALER_1, TIMER32_32BIT,
-    TIMER32_PERIODIC_MODE);
-    MAP_Timer32_setCount( TIMER32_BASE, 5 * 48E6);
-    MAP_Interrupt_enableInterrupt(INT_T32_INT1);
-    MAP_Interrupt_enableMaster( );
-    MAP_Timer32_startTimer(TIMER32_BASE, true);
-
-    while(doSleep) {
-        MAP_PCM_gotoLPM0( );
-    }
-
-    /* Right before the main loop, we start the 32 bit timer to trigger after 10s */
-    loopCounter = 0;
-    MAP_Timer32_setCount( TIMER32_BASE, 10 * 48E6);
-    MAP_Interrupt_enableInterrupt(INT_T32_INT1);
-    MAP_Interrupt_enableMaster( );
-    MAP_Timer32_startTimer(TIMER32_BASE, true);
-
-    while ( 1 ) {
-        if ( !doTest )
-            break;
-
-        /*** CAN ***/
-        /* PINGs */
-        /*result = 0;
-         canInterface.sendHeader(&pingADCS);
-         while ( !result )
-         result = canInterface.getLastStatus( );
-
-         result = 0;
-         canInterface.sendHeader(&pingEPS);
-         while ( !result )
-         result = canInterface.getLastStatus( );*/
-
-         result = 0;
-         canInterface.sendHeader(&pingPL);
-         while ( !result )
-         result = canInterface.getLastStatus( );
-
-        /*** I2C ***/
-        //result = i2cInterface.sendHeader(&pingADCS);
-        //result = i2cInterface.sendHeader(&pingEPS);
-        //result = i2cInterface.sendHeader(&pingPL);
-
-        //MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
-        /*for ( i = 0; i < 100000; i++ )
-            ;*/
-        //i2cInterface.requestData(20, 1);
-        //RXCounter = 0;
-        //canInterface.requestData(2, 1);
-        //while ( RXCounter != 1 )
-        //    ;
-        //MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
-
-        //MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN1);
-        loopCounter++;
-    }
-
-    while ( 1 ) {
-        long totalBytes = loopCounter * 2 * 8;
-        //printf("Total number of bytes: %d\n", totalBytes);
-        MAP_PCM_gotoLPM0InterruptSafe( );
-    }
 
 #elif SUBSYSTEM == SUBSYS_EPS
     ownAddress = 1;
@@ -250,9 +197,7 @@ DataPacket * generateDataPacket( uint_fast8_t length, bool doCRC ) {
     return packet;
 }
 
-#ifdef __cplusplus
 extern "C" {
-#endif
 void T32_INT1_IRQHandler( void ) {
     /* Handles the triggering of the 32 bit timer */
     MAP_Timer32_haltTimer(TIMER32_BASE);
@@ -264,6 +209,4 @@ void T32_INT1_IRQHandler( void ) {
     doTest = false;
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN2);
 }
-#ifdef __cplusplus
 }
-#endif
