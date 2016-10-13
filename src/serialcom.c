@@ -20,6 +20,7 @@
  */
 
 volatile uint_fast8_t lastChar;
+extern volatile uint_fast8_t testsToRun;
 
 /* Current setting: 19200 bps */
 const eUSCI_UART_Config uartConfig_PC = {
@@ -48,7 +49,7 @@ void Serial_init(void) {
 	/* Enabling interrupts */
 	MAP_UART_enableInterrupt(EUSCI_A0_BASE, EUSCI_A_UART_RECEIVE_INTERRUPT);
 	MAP_Interrupt_enableInterrupt(INT_EUSCIA0);
-	MAP_Interrupt_enableSleepOnIsrExit();
+	//MAP_Interrupt_enableSleepOnIsrExit();
 	MAP_Interrupt_enableMaster();
 
 	/* board LED */
@@ -114,6 +115,14 @@ void Serial_putint(uint32_t num) {
 		Serial_puts((const char *) &str[i]);
 }
 
+void Serial_disableISR( void ) {
+	MAP_Interrupt_disableInterrupt(INT_EUSCIA0);
+}
+
+void Serial_enableISR( void ) {
+	MAP_Interrupt_enableInterrupt(INT_EUSCIA0);
+}
+
 void itoa(char * str, uint8_t len, uint32_t val, uint8_t base) {
 	uint8_t i;
 
@@ -144,7 +153,8 @@ void EUSCIA0_IRQHandler(void) {
 				Menu_parseOption(lastChar);
 			}
 			lastChar = 0;
-			Serial_puts("\n> ");
+			if(!testsToRun)
+				Serial_puts("\n> ");
 		} else {
 			lastChar = data;
 		}

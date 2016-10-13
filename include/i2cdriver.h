@@ -9,7 +9,6 @@
 #define INCLUDE_I2CDRIVER_H_
 
 #include "businterface.h"
-#include "simpackets.h"
 
 #define I2C_MODE_NORMAL         0
 #define I2C_MODE_DATARECEIVE    1
@@ -20,11 +19,11 @@ public:
     uint_fast8_t init( bool asMaster, uint_fast8_t ownAddress );
 
     /* Bus MASTER methods */
-    uint_fast8_t sendHeader( HeaderPacket * );
-    uint_fast8_t requestData( uint_fast8_t, uint_fast8_t );
+    //uint_fast8_t requestData( uint_fast8_t, uint_fast8_t );
 
-    void setHeaderHandler(void (*)(HeaderPacket *));
-    void setDataHandler(void (*)(DataPacket *));
+    void setDataHandler(void (*)(uint_fast8_t, uint_fast8_t *, uint_fast8_t));
+    uint_fast8_t transmitData(uint_fast8_t node, uint_fast8_t * data, uint_fast8_t size);
+    uint_fast8_t requestData(uint_fast8_t howMuch, uint_fast8_t node);
 };
 
 #endif /* INCLUDE_I2CDRIVER_H_ */

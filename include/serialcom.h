@@ -22,6 +22,10 @@ void Serial_putint(uint_fast8_t num);
 
 void Serial_putchar(uint_fast8_t c);
 
+void Serial_disableISR( void );
+
+void Serial_enableISR( void );
+
 void itoa(char * str, uint8_t len, uint32_t val, uint8_t base);
 
 #ifdef __cplusplus

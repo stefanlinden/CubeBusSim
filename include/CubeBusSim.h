@@ -15,9 +15,4 @@
 #define ERR_NODATASET   0x05
 #define ERR_UNDEFINED   0x06
 
-#define SUBSYS_OBC  0
-#define SUBSYS_EPS  1
-#define SUBSYS_ADCS 2
-#define SUBSYS_PL   3
-
 #endif /* INCLUDE_CUBEBUSSIM_H_ */

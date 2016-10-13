@@ -9,15 +9,17 @@
 #include <driverlib.h>
 #include "serialmenu.h"
 #include "serialcom.h"
+#include "tests.h"
 
 extern volatile uint32_t bootCount;
+extern volatile uint_fast8_t testsToRun;
 
 void Menu_display(void) {
 
 	Serial_puts("\rMenu:\n\n");
 	Serial_puts(" 1) Display Boot Counter\n");
 	Serial_puts(" 2) Reset Boot Counter\n");
-	Serial_puts(" 3) Toggle LEDs\n");
+	Serial_puts("\n 3) Start I2C Realistic Test\n");
 
 	Serial_puts("\n 9) Reboot\n");
 
@@ -61,7 +63,7 @@ void Menu_parseOption(uint_fast8_t option) {
 		Menu_displayBootCount(true);
 		break;
 	case '3':
-		MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN2);
+		testsToRun |= TESTI2C;
 		break;
 	case '9':
 		Serial_puts("\n *** REBOOT ***   \n\n\n");
