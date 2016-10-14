@@ -5,18 +5,20 @@
  *      Author: Stefan van der Linden
  */
 
+#include <DWire.h>
 #include "i2cdriver.h"
 #include "businterface.h"
 #include "CubeBusSim.h"
-#include <DWire.h>
 #include "addresstable.h"
 #include "tests.h"
+#include "datasource.h"
+#include "crc.h"
 
 DWire wire = DWire();
-uint_fast8_t i2c_rxBuffer[256];
+extern uint_fast8_t rxBuffer[256];
 uint_fast8_t i2c_mode;
+uint_fast8_t * testData;
 void (*i2c_DataHandler)(uint_fast8_t, uint_fast8_t *, uint_fast8_t);
-
 
 /* Interrupt handlers */
 void handleReceive(uint8_t);
@@ -32,6 +34,7 @@ uint_fast8_t I2CInterface::init(bool asMaster, uint_fast8_t ownAddress) {
 	wire.onReceive(handleReceive);
 	wire.onRequest(handleRequest);
 
+	testData = getData();
 
 	if (asMaster)
 		wire.begin();
@@ -40,16 +43,23 @@ uint_fast8_t I2CInterface::init(bool asMaster, uint_fast8_t ownAddress) {
 	return 0;
 }
 
-uint_fast8_t I2CInterface::requestData(uint_fast8_t howMuch, uint_fast8_t node) {
+uint_fast8_t I2CInterface::requestData(uint_fast8_t howMuch,
+		uint_fast8_t node) {
 	uint_fast8_t ii;
+	uint16_t crc_check, crc_received;
 
-	if(wire.requestFrom(getI2CAddress(node), howMuch) != howMuch)
+	if (wire.requestFrom(getI2CAddress(node), howMuch + 2) != howMuch + 2)
 		return 1;
 
-	for(ii = 0; ii < howMuch; ii++)
-		i2c_rxBuffer[ii] = wire.read();
+	for (ii = 0; ii < howMuch + 2; ii++)
+		rxBuffer[ii] = wire.read();
 
-	DataHandler(I2CBUS, i2c_rxBuffer, ii + 1);
+	crc_check = getCRC(rxBuffer, howMuch);
+	crc_received = (rxBuffer[howMuch] << 8) + (rxBuffer[howMuch + 1] & 0xFF);
+
+	// Add check here to verify CRC
+
+	DataHandler(I2CBUS, rxBuffer, ii + 1);
 
 	return 0;
 }
@@ -67,9 +77,15 @@ uint_fast8_t I2CInterface::transmitData(uint_fast8_t node, uint_fast8_t * data,
 	/* Start a transaction to the given address */
 	wire.beginTransmission(getI2CAddress(node));
 
+	uint16_t crc = getCRC(data, size);
+
 	/* Buffer the data */
 	for (ii = 0; ii < size; ii++)
 		wire.write(data[ii]);
+
+	/* Add the CRC */
+	wire.write((crc >> 8) & 0xFF);
+	wire.write(crc & 0xFF);
 
 	/* Transmit! */
 	wire.endTransmission(true);
@@ -85,9 +101,9 @@ void handleReceive(uint8_t numBytes) {
 	uint_fast8_t ii;
 
 	for (ii = 0; ii < numBytes; ii++)
-		i2c_rxBuffer[ii] = wire.read();
+		rxBuffer[ii] = wire.read();
 
-	i2c_DataHandler(I2CBUS, i2c_rxBuffer, ii + 1);
+	i2c_DataHandler(I2CBUS, rxBuffer, numBytes);
 }
 
 /**
@@ -97,6 +113,13 @@ void handleReceive(uint8_t numBytes) {
 void handleRequest(void) {
 	uint_fast8_t ii;
 
-	for (ii = 0; ii < 10; ii++)
-		wire.write(ii);
+	uint16_t crc = getCRC(testData, 10);
+
+	for (ii = 0; ii < 10; ii++) {
+		wire.write(testData[ii]);
+	}
+
+	/* Add the CRC */
+	wire.write((crc >> 8) & 0xFF);
+	wire.write(crc & 0xFF);
 }

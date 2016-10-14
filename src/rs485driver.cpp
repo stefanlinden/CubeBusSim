@@ -7,18 +7,26 @@
 
 #include <driverlib.h>
 #include <stdint.h>
+#include <msp.h>
 
 #include "rs485driver.h"
 #include "businterface.h"
-#include "simpackets.h"
 #include "addresstable.h"
 #include "CubeBusSim.h"
+#include "datasource.h"
+#include "tests.h"
+#include "crc.h"
 
 /* Globals */
-void (*rs485_DataHandler)( uint_fast8_t *, uint_fast8_t );
-uint_fast8_t rxBuffer[8];
-volatile uint_fast8_t rxPtr, requestDataCtr;
+void (*rs485_DataHandler)(uint_fast8_t, uint_fast8_t *, uint_fast8_t);
 RS485Interface * rs485Instance;
+
+extern uint_fast8_t rxBuffer[256];
+uint_fast8_t txBuffer[256];
+
+uint_fast8_t * testData;
+
+volatile uint_fast8_t dataRXSize, dataRXCount, requestSize;
 
 /* UART Configuration Parameter. These are the configuration parameters to
  * make the eUSCI A UART module to operate with a 115200 baud rate. These
@@ -28,161 +36,160 @@ RS485Interface * rs485Instance;
  */
 /* baud rate: 1048576 bps */
 const eUSCI_UART_Config uartConfig_RS485 = { EUSCI_A_UART_CLOCKSOURCE_SMCLK, // SMCLK Clock Source
-        2,                                       // BRDIV
-        13,                                       // UCxBRF
-        221,                                      // UCxBRS
-        EUSCI_A_UART_NO_PARITY,                  // No Parity
-        EUSCI_A_UART_LSB_FIRST,                  // LSB First
-        EUSCI_A_UART_ONE_STOP_BIT,               // One stop bit
-        EUSCI_A_UART_MODE,                       // UART mode
-        EUSCI_A_UART_OVERSAMPLING_BAUDRATE_GENERATION  // Oversampling
-        };
-
-/* Prototypes */
-void transmitBytes( uint_fast8_t * data, uint_fast8_t length );
+		2,                                       // BRDIV
+		13,                                      // UCxBRF
+		221,                                     // UCxBRS
+		EUSCI_A_UART_NO_PARITY,                  // No Parity
+		EUSCI_A_UART_LSB_FIRST,                  // LSB First
+		EUSCI_A_UART_ONE_STOP_BIT,               // One stop bit
+		EUSCI_A_UART_MODE,            			 // UART mode
+		EUSCI_A_UART_OVERSAMPLING_BAUDRATE_GENERATION  // Oversampling
+		};
 
 /* Main methods */
-uint_fast8_t RS485Interface::init( bool asMaster, uint_fast8_t ownAddress ) {
-    this->isMaster = asMaster;
-    this->ownAddress = ownAddress;
+uint_fast8_t RS485Interface::init(bool asMaster, uint_fast8_t ownAddress) {
+	this->isMaster = asMaster;
+	this->ownAddress = ownAddress;
 
-    rs485Instance = this;
+	rs485Instance = this;
 
-    rxPtr = 0;
-    requestDataCtr = 0;
+	testData = getData();
 
-    /* Select the pins for the UART RX and TX */
-    MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P3,
-    GPIO_PIN2 | GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION);
+	/* Select the pins for the UART RX and TX */
+	MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P3,
+	GPIO_PIN2 | GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION);
 
-    /* Configuring UART Module */
-    MAP_UART_initModule(EUSCI_A2_BASE, &uartConfig_RS485);
+	/* Configuring UART Module */
+	MAP_UART_initModule(EUSCI_A2_BASE, &uartConfig_RS485);
 
-    /* Enable UART module */
-    MAP_UART_enableModule(EUSCI_A2_BASE);
+	/* Enable UART module */
+	MAP_UART_enableModule(EUSCI_A2_BASE);
 
-    /* Enable interrupts */
-    MAP_UART_enableInterrupt(EUSCI_A2_BASE, EUSCI_A_UART_RECEIVE_INTERRUPT);
-    MAP_Interrupt_enableInterrupt(INT_EUSCIA2);
-    MAP_Interrupt_enableMaster( );
+	/* Enable interrupts */
+	MAP_UART_enableInterrupt(EUSCI_A2_BASE, EUSCI_A_UART_RECEIVE_INTERRUPT);
+	MAP_Interrupt_enableInterrupt(INT_EUSCIA2);
+	MAP_Interrupt_enableMaster();
 
-    /* Enable the RE/DE pin and set to RX (low). Pin is active high for TX */
-    MAP_GPIO_setAsOutputPin(GPIO_PORT_P3, GPIO_PIN0);
-    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P3, GPIO_PIN0);
-    return 0;
+	/* Enable the RE/DE pin and set to RX (low). Pin is active high for TX */
+	MAP_GPIO_setAsOutputPin(GPIO_PORT_P3, GPIO_PIN0);
+	MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P3, GPIO_PIN0);
+	return 0;
 }
 
-
-void RS485Interface::setDataHandler( void (*handler)( uint_fast8_t *, uint_fast8_t ) ) {
-    DataHandler = handler;
-    rs485_DataHandler = handler;
+void RS485Interface::setDataHandler(
+		void (*handler)(uint_fast8_t, uint_fast8_t *, uint_fast8_t)) {
+	DataHandler = handler;
+	rs485_DataHandler = handler;
 }
 
-
-uint_fast8_t RS485Interface::requestData( uint_fast8_t howMuch,
-        uint_fast8_t address ) {
-    uint_fast8_t res;
-
-    return 0;
+uint_fast8_t RS485Interface::requestData(uint_fast8_t howMuch,
+		uint_fast8_t address) {
+	requestSize = howMuch + 1;
+	dataRXCount = 0;
+	return 0;
 }
 
-void transmitBytes( uint_fast8_t * data, uint_fast8_t length ) {
-    uint_fast8_t ii;
+uint_fast8_t RS485Interface::transmitData(uint_fast8_t node,
+		uint_fast8_t * data, uint_fast8_t size) {
+	uint_fast8_t ii, address;
 
-    /* Enable TX */
-    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P3, GPIO_PIN0);
+	address = getRS485Address(node);
 
-    /* Make sure the 'transmit complete' ISR is reset */
+	/* Get the corresponding CRC */
+	beginCRC();
+	addIntForCRC(size);
+	addIntForCRC(address);
+	addDataForCRC(data, size);
+	uint16_t crc = getCRCResult();
 
+	/* Enable TX */
+	MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P3, GPIO_PIN0);
 
-    /* Loop through the bytes, transmitting each one */
-    for ( ii = 0; ii < length; ii++ ) {
-        /* Block until we can write to the buffer */
-        while ( !MAP_UART_getInterruptStatus(EUSCI_A2_BASE,
-        EUSCI_A_UART_TRANSMIT_INTERRUPT_FLAG) )
-            ;
+	/* Transmit the number of data bytes first */
+	while (!(UCA2IFG & UCTXIFG))
+		;
 
-        /* Transmit the byte */
-        MAP_UART_transmitData(EUSCI_A2_BASE, data[ii]);
-        UCA2IFG &= ~BIT3;
-    }
+	MAP_UART_transmitData(EUSCI_A2_BASE, size);
 
-    /* Block until everything has been transmitted */
-    //while ( !(UCA2IFG & BIT3) );
-    while(UCA2STATW & BIT0);
+	/* Transmit the address */
+	while (!(UCA2IFG & UCTXIFG))
+		;
+	MAP_UART_transmitData(EUSCI_A2_BASE, address);
 
-    /* Disable TX */
-    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P3, GPIO_PIN0);
+	/* Loop through the bytes, transmitting each one */
+	for (ii = 0; ii < size; ii++) {
+		/* Block until we can write to the buffer */
+		while (!(UCA2IFG & UCTXIFG))
+			;
+
+		/* Transmit the data byte */
+		MAP_UART_transmitData(EUSCI_A2_BASE, data[ii]);
+	}
+
+	/* Transmit the CRC */
+	MAP_UART_transmitData(EUSCI_A2_BASE, (crc >> 8) & 0xFF);
+	while (!(UCA2IFG & UCTXIFG))
+		;
+	MAP_UART_transmitData(EUSCI_A2_BASE, crc & 0xFF);
+
+	/* Block until everything has been transmitted */
+	while (UCA2STATW & UCBUSY)
+		;
+
+	/* Disable TX */
+	MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P3, GPIO_PIN0);
+
+	return 0;
 }
-
-uint_fast8_t RS485Interface::sendData( void ) {
-    DataPacket * packet;
-    uint_fast8_t txBuffer[8];
-    uint_fast8_t ii, it, nMessages;
-
-    nMessages = dataQueue.getLength( );
-    if ( !nMessages )
-        return 1;
-
-    for ( it = 0; it < nMessages; it++ ) {
-        packet = dataQueue.pop( );
-
-        txBuffer[0] = PKT_DATA;
-        for(ii = 0; ii < 5; ii++)
-            txBuffer[ii + 1] = packet->data[ii];
-        txBuffer[6] = ((uint_fast8_t) packet->crc) >> 8;
-        txBuffer[7] = (uint_fast8_t) (packet->crc & 0xFF);
-
-        /* Transmit the tx buffer */
-        transmitBytes(txBuffer, 8);
-
-        /* Clean up */
-        delete packet;
-    }
-
-    return 0;
-}
-
 
 /* Interrupt handlers */
 extern "C" {
-void EUSCI_A2_IRQHandler( void ) {
-    /* Get the interrupt status */
-    uint32_t status = MAP_UART_getEnabledInterruptStatus(EUSCI_A2_BASE);
-    MAP_UART_clearInterruptFlag(EUSCI_A2_BASE, status);
+void EUSCIA2_IRQHandler(void) {
+	uint16_t crc_received, crc_check;
 
-    if ( status & EUSCI_A_UART_RECEIVE_INTERRUPT ) {
-        rxBuffer[rxPtr] = MAP_UART_receiveData(EUSCI_A2_BASE);
-        rxPtr++;
+	/* Get the interrupt status */
+	uint32_t status = MAP_UART_getEnabledInterruptStatus(EUSCI_A2_BASE);
+	MAP_UART_clearInterruptFlag(EUSCI_A2_BASE, status);
 
-        if ( rxPtr == 8 ) {
-            /* Check if this packet is data or not */
-            if ( requestDataCtr > 0 && rxBuffer[0] == PKT_DATA ) {
-                /* Copy the data into a new DataPacket */
-                DataPacket * dataPkt = new DataPacket(5, rxBuffer);
-                dataPkt->crc = ((uint_fast16_t) rxBuffer[6] << 8)
-                        | (rxBuffer[7] & 0xFF);
-                rxPtr = 0;
-                requestDataCtr--;
-                rs485_DataHandler(dataPkt);
-                return;
-            }
+	if (status & EUSCI_A_UART_RECEIVE_INTERRUPT) {
 
-            /* If it's not data, then it's a header packet. Check whether it's meant for this node */
-            if ( rxBuffer[1] != getRS485Address(rs485Instance->ownAddress) ) {
-                rxPtr = 0;
-                return;
-            }
+		if (!dataRXSize) {
+			/* First byte is number of data payload bytes in the message, second byte is address, next two bytes are CRC-16 */
+			dataRXSize = MAP_UART_receiveData(EUSCI_A2_BASE) + 3;
+			dataRXCount = 0;
+			return;
+		}
 
-            if ( rxBuffer[0] == PKT_ACK ) {
-                rs485Instance->lastStatus = PKT_ACK;
-            } else if ( rxBuffer[0] == PKT_NAK ) {
-                rs485Instance->lastStatus = PKT_NAK;
-            } else {
-                rs485_HeaderHandler(new HeaderPacket(rxBuffer));
-            }
-            rxPtr = 0;
-        }
-    }
+		rxBuffer[dataRXCount] = MAP_UART_receiveData(EUSCI_A2_BASE);
+		dataRXCount++;
+
+		if (dataRXCount == dataRXSize) {
+
+			beginCRC();
+			addIntForCRC(dataRXCount - 3);
+			addIntForCRC(rxBuffer[0]);
+			addDataForCRC(&rxBuffer[1], dataRXSize - 3);
+			crc_check = getCRCResult();
+
+			crc_received = (rxBuffer[dataRXCount - 2] << 8) + rxBuffer[dataRXCount - 1];
+			if (rxBuffer[0] == getRS485Address(rs485Instance->ownAddress)
+					&& crc_check == crc_received) {
+				rs485_DataHandler(RS485BUS, &rxBuffer[3], dataRXSize - 3);
+
+				/* If we gave a command byte, then respond */
+				if (!rs485Instance->isMaster && dataRXSize == 5) {
+					MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN2);
+
+					/* Transmit a response */
+					rs485Instance->transmitData(SUBSYS_OBC,
+							(uint_fast8_t *) testData, 10);
+				}
+			}
+			dataRXCount = 0;
+			dataRXSize = 0;
+		}
+
+	}
+
 }
 }

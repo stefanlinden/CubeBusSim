@@ -18,5 +18,6 @@
 uint_fast8_t getI2CAddress(uint_fast8_t);
 uint_fast8_t getCANAddress(uint_fast8_t);
 uint_fast8_t getUSBAddress(uint_fast8_t);
+uint_fast8_t getRS485Address(uint_fast8_t);
 
 #endif /* INCLUDE_ADDRESSTABLE_H_ */

@@ -15,14 +15,17 @@
 extern "C" {
 #endif
 
-#define I2CBUS 0
-#define CANBUS 1
+#define I2CBUS 		0
+#define CANBUS 		1
+#define RS485BUS 	2
 
-#define TESTI2C BIT0
-#define TESTCAN BIT1
+#define TESTI2C 	BIT0
+#define TESTCAN 	BIT1
+#define TESTRS485	BIT2
 
-void TestI2C( void );
-void TestCAN( void );
+void TestI2C( bool withTimer );
+void TestCAN( bool withTimer );
+void TestRS485( bool withTimer );
 
 void DataHandleMaster(uint_fast8_t bus, uint_fast8_t * data, uint_fast8_t size);
 

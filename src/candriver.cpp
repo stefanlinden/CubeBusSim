@@ -29,10 +29,10 @@ void msgHandler(MCP_CANMessage * msg);
 void (*can_DataHandler)(uint_fast8_t, uint_fast8_t *, uint_fast8_t);
 CANInterface * canInstance;
 
-uint_fast8_t rxBuffer[256];
+extern uint_fast8_t rxBuffer[256];
 uint_fast8_t txBuffer[256];
 
-const uint_fast8_t testData[10] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+const uint_fast8_t * testData;
 
 volatile uint_fast8_t dataRXSize, dataRXCount;
 
@@ -40,6 +40,8 @@ uint_fast8_t CANInterface::init(bool asMaster, uint_fast8_t ownAddress) {
 	uint_fast8_t canAddress;
 	isMaster = asMaster;
 	this->ownAddress = ownAddress;
+
+	testData = getData();
 
 	dataRXSize = 0;
 	dataRXCount = 0;
@@ -98,7 +100,7 @@ uint_fast8_t CANInterface::init(bool asMaster, uint_fast8_t ownAddress) {
 
 uint_fast8_t CANInterface::requestData(uint_fast8_t howMuch,
 		uint_fast8_t address) {
-	dataRXSize = howMuch;
+	//dataRXSize = howMuch;
 	dataRXCount = 0;
 	return 0;
 }
@@ -106,9 +108,10 @@ uint_fast8_t CANInterface::requestData(uint_fast8_t howMuch,
 void msgHandler(MCP_CANMessage * msg) {
 	uint_fast8_t ii;
 
-	if (!canInstance->isMaster && !dataRXSize) {
-		dataRXSize = getNumBytesFromOBC(canInstance->ownAddress);
+	if (!dataRXSize && msg->length == 1) {
+		dataRXSize = msg->data[0];
 		dataRXCount = 0;
+		return;
 	}
 	/* If we're a master, then we're receiving data after a request */
 	if (!dataRXSize)
@@ -141,10 +144,20 @@ uint_fast8_t CANInterface::transmitData(uint_fast8_t node, uint_fast8_t * data,
 		uint_fast8_t size) {
 	MCP_CANMessage canMsg;
 	uint_fast8_t ptr = size;
-	uint_fast8_t delta;
+
+	/* Send the length of the message first */
+
+	canMsg.ID = getCANAddress(node);
+	canMsg.isExtended = 0;
+	canMsg.isRequest = 0;
+
+	canMsg.data = &size;
+	canMsg.length = 1;
+
+	MCP_sendBulk(&canMsg, 1);
 
 	while (ptr != 0) {
-		canMsg.ID = getCANAddress(node);
+
 		canMsg.data = &data[size - ptr];
 
 		if (ptr > 7)
@@ -153,9 +166,6 @@ uint_fast8_t CANInterface::transmitData(uint_fast8_t node, uint_fast8_t * data,
 			canMsg.length = ptr;
 
 		ptr -= canMsg.length;
-
-		canMsg.isExtended = 0;
-		canMsg.isRequest = 0;
 
 		MCP_sendBulk(&canMsg, 1);
 	}

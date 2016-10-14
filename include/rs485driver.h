@@ -18,11 +18,11 @@ public:
     uint_fast8_t init( bool asMaster, uint_fast8_t ownAddress );
 
     /* Bus MASTER methods */
-    uint_fast8_t sendHeader( HeaderPacket * );
     uint_fast8_t requestData( uint_fast8_t, uint_fast8_t );
+    uint_fast8_t transmitData(uint_fast8_t node, uint_fast8_t * data, uint_fast8_t size);
 
-    void setHeaderHandler(void (*)(HeaderPacket *));
-    void setDataHandler(void (*)(DataPacket *));
+    void setDataHandler(void (*)(uint_fast8_t, uint_fast8_t *, uint_fast8_t));
+
 
     uint_fast8_t sendData( void );
 };

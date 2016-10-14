@@ -10,6 +10,20 @@
 
 #include <stdint.h>
 
-uint_fast16_t getCRC(uint_fast8_t *, uint_fast8_t );
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+uint16_t getCRC(uint_fast8_t *, uint_fast8_t );
+
+void beginCRC( void );
+void addIntForCRC(uint_fast8_t data);
+void addDataForCRC(uint_fast8_t * data, uint_fast8_t length);
+uint16_t getCRCResult( void );
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* INCLUDE_CRC_H_ */
