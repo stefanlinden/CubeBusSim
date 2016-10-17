@@ -24,6 +24,8 @@ void (*i2c_DataHandler)(uint_fast8_t, uint_fast8_t *, uint_fast8_t);
 void handleReceive(uint8_t);
 void handleRequest(void);
 
+uint_fast8_t checkByteResponse;
+
 /* Class method definitions */
 uint_fast8_t I2CInterface::init(bool asMaster, uint_fast8_t ownAddress) {
 
@@ -57,11 +59,12 @@ uint_fast8_t I2CInterface::requestData(uint_fast8_t howMuch,
 	crc_check = getCRC(rxBuffer, howMuch);
 	crc_received = (rxBuffer[howMuch] << 8) + (rxBuffer[howMuch + 1] & 0xFF);
 
-	// Add check here to verify CRC
+	if(crc_check != crc_received)
+		return 0xFF;
 
 	DataHandler(I2CBUS, rxBuffer, ii + 1);
 
-	return 0;
+	return rxBuffer[0];
 }
 
 void I2CInterface::setDataHandler(
@@ -103,6 +106,9 @@ void handleReceive(uint8_t numBytes) {
 	for (ii = 0; ii < numBytes; ii++)
 		rxBuffer[ii] = wire.read();
 
+	if(numBytes == 4) /* Command is two bytes + CRC-16 */
+		checkByteResponse = rxBuffer[0];
+
 	i2c_DataHandler(I2CBUS, rxBuffer, numBytes);
 }
 
@@ -112,6 +118,8 @@ void handleReceive(uint8_t numBytes) {
  */
 void handleRequest(void) {
 	uint_fast8_t ii;
+
+	testData[0] = checkByteResponse;
 
 	uint16_t crc = getCRC(testData, 10);
 

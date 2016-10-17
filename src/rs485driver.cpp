@@ -154,7 +154,7 @@ void EUSCIA2_IRQHandler(void) {
 	if (status & EUSCI_A_UART_RECEIVE_INTERRUPT) {
 
 		if (!dataRXSize) {
-			/* First byte is number of data payload bytes in the message, second byte is address, next two bytes are CRC-16 */
+			/* First byte is number of data payload bytes in the message, second byte is address. Last two bytes are CRC-16 */
 			dataRXSize = MAP_UART_receiveData(EUSCI_A2_BASE) + 3;
 			dataRXCount = 0;
 			return;
@@ -176,11 +176,12 @@ void EUSCIA2_IRQHandler(void) {
 					&& crc_check == crc_received) {
 				rs485_DataHandler(RS485BUS, &rxBuffer[3], dataRXSize - 3);
 
-				/* If we gave a command byte, then respond */
+				/* If we got a command byte, then respond */
 				if (!rs485Instance->isMaster && dataRXSize == 5) {
 					MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN2);
 
 					/* Transmit a response */
+					testData[0] = rxBuffer[3];
 					rs485Instance->transmitData(SUBSYS_OBC,
 							(uint_fast8_t *) testData, 10);
 				}

@@ -32,7 +32,7 @@ CANInterface * canInstance;
 extern uint_fast8_t rxBuffer[256];
 uint_fast8_t txBuffer[256];
 
-const uint_fast8_t * testData;
+uint_fast8_t * testData;
 
 volatile uint_fast8_t dataRXSize, dataRXCount;
 
@@ -126,6 +126,7 @@ void msgHandler(MCP_CANMessage * msg) {
 	if (dataRXCount == dataRXSize) {
 		can_DataHandler(CANBUS, rxBuffer, dataRXSize);
 		if (!canInstance->isMaster) {
+			testData[0] = rxBuffer[0];
 			canInstance->transmitData(SUBSYS_OBC, (uint_fast8_t *) testData,
 					10);
 		}

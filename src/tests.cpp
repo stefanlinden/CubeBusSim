@@ -21,6 +21,7 @@ extern RS485Interface rs485Interface;
 
 volatile long loopCounter;
 volatile uint_fast8_t lastLength;
+volatile uint_fast8_t lastCheckByteResponse;
 
 /* Prototypes */
 void setTimer(void);
@@ -32,14 +33,20 @@ void TestI2C(bool withTimer) {
 
 	uint_fast8_t * testdata;
 	testdata = getData();
+	uint_fast8_t checkByte = 0;
 
 	if (withTimer)
 		setTimer();
 
 	while (1) {
+		testdata[0] = checkByte;
 		i2cInterface.transmitData(SUBSYS_ADCS, (uint_fast8_t *) testdata, 2);
-		if (!i2cInterface.requestData(10, SUBSYS_ADCS))
+		if (i2cInterface.requestData(10, SUBSYS_ADCS) == checkByte)
 			MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN1);
+
+		checkByte++;
+		if (checkByte == 0xFF)
+			checkByte = 0;
 
 		if (withTimer)
 			MAP_PCM_gotoLPM0();
@@ -51,17 +58,24 @@ void TestCAN(bool withTimer) {
 
 	uint_fast8_t * testdata;
 	testdata = getData();
+	uint_fast8_t checkByte = 0;
 
 	if (withTimer)
 		setTimer();
 
 	while (1) {
+		testdata[0] = checkByte;
 		lastLength = 0;
 		canInterface.requestData(10, SUBSYS_ADCS);
 		canInterface.transmitData(SUBSYS_ADCS, (uint_fast8_t *) testdata, 2);
 		while (lastLength != 10)
 			;
-		MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN1);
+		if(lastCheckByteResponse == checkByte)
+			MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN1);
+
+		checkByte++;
+		if (checkByte == 0xFF)
+			checkByte = 0;
 
 		if (withTimer)
 			MAP_PCM_gotoLPM0();
@@ -73,11 +87,14 @@ void TestRS485(bool withTimer) {
 
 	uint_fast8_t * testdata;
 	testdata = getData();
+	uint_fast8_t checkByte = 0;
 
 	if (withTimer)
 		setTimer();
 
 	while (1) {
+		testdata[0] = checkByte;
+
 		lastLength = 0;
 		rs485Interface.requestData(10, SUBSYS_ADCS);
 		rs485Interface.transmitData(SUBSYS_ADCS, (uint_fast8_t *) testdata, 2);
@@ -90,7 +107,12 @@ void TestRS485(bool withTimer) {
 		while (lastLength != 10)
 			;
 
-		MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN1);
+		if(lastCheckByteResponse == checkByte)
+			MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN1);
+
+		checkByte++;
+		if (checkByte == 0xFF)
+			checkByte = 0;
 
 		if (withTimer)
 			MAP_PCM_gotoLPM0();
@@ -107,6 +129,7 @@ void DataHandleMaster(uint_fast8_t bus, uint_fast8_t * data,
 		uint_fast8_t length) {
 	loopCounter++;
 	lastLength = length;
+	lastCheckByteResponse = data[0];
 }
 
 }

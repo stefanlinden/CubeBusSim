@@ -21,8 +21,8 @@
 #include "tests.h"
 #include "datasource.h"
 
-//#define USE_CAN
-#define USE_I2C
+#define USE_CAN
+//#define USE_I2C
 //#define USE_RS485
 
 /* Select the correct subsystem here */
@@ -95,7 +95,7 @@ int main(void) {
 
 	MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN0);
 
-	TestI2C(true);
+	TestCAN(true);
 
 	while (1) {
 
