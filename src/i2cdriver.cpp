@@ -50,8 +50,9 @@ uint_fast8_t I2CInterface::requestData(uint_fast8_t howMuch,
 	uint_fast8_t ii;
 	uint16_t crc_check, crc_received;
 
+
 	if (wire.requestFrom(getI2CAddress(node), howMuch + 2) != howMuch + 2)
-		return 1;
+		return 0xFF;
 
 	for (ii = 0; ii < howMuch + 2; ii++)
 		rxBuffer[ii] = wire.read();

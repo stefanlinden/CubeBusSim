@@ -21,14 +21,14 @@
 #include "tests.h"
 #include "datasource.h"
 
-#define USE_CAN
-//#define USE_I2C
+//#define USE_CAN
+#define USE_I2C
 //#define USE_RS485
 
 /* Select the correct subsystem here */
-#define SUBSYSTEM SUBSYS_OBC
+//#define SUBSYSTEM SUBSYS_OBC
 //#define SUBSYSTEM SUBSYS_EPS
-//#define SUBSYSTEM SUBSYS_ADCS
+#define SUBSYSTEM SUBSYS_ADCS
 //#define SUBSYSTEM SUBSYS_PL
 
 /* Interfaces */
@@ -91,11 +91,11 @@ int main(void) {
 	rs485Interface.init(true, 0);
 #endif
 
-	//Serial_init();
+	Serial_init();
 
 	MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN0);
 
-	TestCAN(true);
+	//TestI2C(false);
 
 	while (1) {
 
@@ -103,7 +103,7 @@ int main(void) {
 		if (testsToRun & TESTI2C) {
 			Serial_disableISR();
 			Serial_puts("\n *** Running I2C Test... ***\n");
-			TestI2C(true);
+			TestI2C(false);
 			Serial_puts("\n>");
 			Serial_enableISR();
 		}
