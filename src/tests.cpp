@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <driverlib.h>
+#include <mcp2515.h>
 
 #include "i2cdriver.h"
 #include "candriver.h"
@@ -17,7 +18,7 @@
 #include "datasource.h"
 #include "serialcom.h"
 
-#define TIMEOUT 50000
+#define TIMEOUT 500000
 
 extern I2CInterface i2cInterface;
 extern CANInterface canInterface;
@@ -29,6 +30,7 @@ volatile uint_fast8_t lastCheckByteResponse;
 
 volatile uint32_t packetErrorCounter;
 volatile bool runTest;
+char result[100];
 
 /* Prototypes */
 void setBeatTimer(void);
@@ -42,15 +44,14 @@ void TestI2C(bool withTimer) {
 
 	uint_fast8_t * testdata;
 	testdata = getData();
-	uint_fast8_t checkByte = 0, loopCounter = 0;
+	uint_fast8_t checkByte = 0;
+	uint32_t loopCounter = 0;
 
 	runTest = true;
 	packetErrorCounter = 0;
 
-	setIntervalTimer();
-
 	if (withTimer)
-		setBeatTimer();
+		setIntervalTimer();
 
 	while (runTest) {
 		testdata[0] = checkByte;
@@ -66,14 +67,13 @@ void TestI2C(bool withTimer) {
 
 		loopCounter++;
 
-		if (withTimer)
-			MAP_PCM_gotoLPM0();
 	}
 	//stopBeatTimer();
 	stopIntervalTimer();
 	uint64_t ratio = packetErrorCounter * 1000000ll / loopCounter;
-	char result[100];
-	sprintf(result, "Loop Counter: %u\nPacket Error Counter: %u\nPacket Error Ratio: 0.%06llu\n", loopCounter, packetErrorCounter, ratio);
+	sprintf(result,
+			"Loop Counter: %u\nPacket Error Counter: %u\nPacket Error Ratio: 0.%06llu\n",
+			loopCounter, packetErrorCounter, ratio);
 	Serial_puts(result);
 }
 
@@ -81,35 +81,53 @@ void TestCAN(bool withTimer) {
 
 	uint_fast8_t * testdata;
 	testdata = getData();
-	uint_fast8_t checkByte = 0;
-	uint32_t timeout;
+	uint_fast8_t checkByte = 0, status;
+	uint32_t timeout, loopCounter;
+
+	runTest = true;
 
 	if (withTimer)
-		setBeatTimer();
+		setIntervalTimer();
 
-	while (1) {
+	packetErrorCounter = 0;
+	loopCounter = 0;
+
+	while (runTest) {
 		testdata[0] = checkByte;
 		lastLength = 0;
 		canInterface.requestData(10, SUBSYS_ADCS);
-		canInterface.transmitData(SUBSYS_ADCS, (uint_fast8_t *) testdata, 2);
+		if (!canInterface.transmitData(SUBSYS_ADCS, (uint_fast8_t *) testdata,
+				2)) {
 
-		timeout = TIMEOUT;
-		while (lastLength != 10 && timeout)
-			timeout--;
+			timeout = TIMEOUT;
+			while (lastLength != 10 && timeout)
+				timeout--;
 
-		if (lastCheckByteResponse == checkByte && timeout)
-			MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN1);
-		else
+			if(!timeout) {
+				//__nop();
+				status = MCP_readStatus();
+				status = MCP_readRegister(RCANINTE);
+				status = MCP_readRegister(RCANINTF);
+			}
+
+			if (lastCheckByteResponse == checkByte && timeout)
+				MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN1);
+			else
+				packetErrorCounter++;
+		} else {
 			packetErrorCounter++;
-
+		}
 		checkByte++;
+		loopCounter++;
 		if (checkByte == 0xFF)
 			checkByte = 0;
-
-		if (withTimer)
-			MAP_PCM_gotoLPM0();
 	}
-	stopBeatTimer();
+	stopIntervalTimer();
+	uint64_t ratio = packetErrorCounter * 1000000ll / loopCounter;
+	sprintf(result,
+			"Loop Counter: %u\nPacket Error Counter: %u\nPacket Error Ratio: 0.%06llu\n",
+			loopCounter, packetErrorCounter, ratio);
+	Serial_puts(result);
 }
 
 void TestRS485(bool withTimer) {
@@ -165,7 +183,7 @@ void T32_INT1_IRQHandler(void) {
 
 void DataHandleMaster(uint_fast8_t bus, uint_fast8_t * data,
 		uint_fast8_t length) {
-	loopCounter++;
+	//loopCounter++;
 	lastLength = length;
 	lastCheckByteResponse = data[0];
 }

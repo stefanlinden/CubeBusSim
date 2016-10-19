@@ -19,7 +19,10 @@ void Menu_display(void) {
 	Serial_puts("\rMenu:\n\n");
 	Serial_puts(" 1) Display Boot Counter\n");
 	Serial_puts(" 2) Reset Boot Counter\n");
-	Serial_puts("\n 3) Start I2C Realistic Test\n");
+	Serial_puts("\n 3) Start I2C Test with Timer\n");
+	Serial_puts(" 4) Start CAN Test with Timer\n");
+
+	Serial_puts("\n 6) Start I2C Test with Cycle Limit\n");
 
 	Serial_puts("\n 9) Reboot\n");
 
@@ -65,6 +68,11 @@ void Menu_parseOption(uint_fast8_t option) {
 	case '3':
 		testsToRun |= TESTI2C;
 		break;
+	case '4':
+		testsToRun |= TESTCAN;
+		break;
+	case '6':
+		testsToRun |= TESTI2CNOTIME;
 	case '9':
 		Serial_puts("\n *** REBOOT ***   \n\n\n");
 		MAP_ResetCtl_initiateHardReset();

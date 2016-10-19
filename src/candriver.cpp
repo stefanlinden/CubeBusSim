@@ -100,7 +100,7 @@ uint_fast8_t CANInterface::init(bool asMaster, uint_fast8_t ownAddress) {
 
 uint_fast8_t CANInterface::requestData(uint_fast8_t howMuch,
 		uint_fast8_t address) {
-	//dataRXSize = howMuch;
+	dataRXSize = 0;
 	dataRXCount = 0;
 	return 0;
 }
@@ -123,7 +123,7 @@ void msgHandler(MCP_CANMessage * msg) {
 
 	dataRXCount += ii;
 
-	if (dataRXCount == dataRXSize) {
+	if (dataRXCount >= dataRXSize) {
 		can_DataHandler(CANBUS, rxBuffer, dataRXSize);
 		if (!canInstance->isMaster) {
 			testData[0] = rxBuffer[0];
@@ -155,7 +155,8 @@ uint_fast8_t CANInterface::transmitData(uint_fast8_t node, uint_fast8_t * data,
 	canMsg.data = &size;
 	canMsg.length = 1;
 
-	MCP_sendBulk(&canMsg, 1);
+	if(MCP_sendBulk(&canMsg, 1) != 0)
+		return ERR_TIMEOUT;
 
 	while (ptr != 0) {
 
@@ -168,7 +169,10 @@ uint_fast8_t CANInterface::transmitData(uint_fast8_t node, uint_fast8_t * data,
 
 		ptr -= canMsg.length;
 
-		MCP_sendBulk(&canMsg, 1);
+		if(MCP_sendBulk(&canMsg, 1) != 0) {
+			return ERR_TIMEOUT;
+		}
+
 	}
 
 	return 0;

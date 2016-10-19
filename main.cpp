@@ -21,14 +21,14 @@
 #include "tests.h"
 #include "datasource.h"
 
-//#define USE_CAN
+#define USE_CAN
 #define USE_I2C
 //#define USE_RS485
 
 /* Select the correct subsystem here */
-//#define SUBSYSTEM SUBSYS_OBC
+#define SUBSYSTEM SUBSYS_OBC
 //#define SUBSYSTEM SUBSYS_EPS
-#define SUBSYSTEM SUBSYS_ADCS
+//#define SUBSYSTEM SUBSYS_ADCS
 //#define SUBSYSTEM SUBSYS_PL
 
 /* Interfaces */
@@ -95,12 +95,18 @@ int main(void) {
 
 	MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN0);
 
-	//TestI2C(false);
-
 	while (1) {
 
 		/* Check whether we have to run a test */
 		if (testsToRun & TESTI2C) {
+			Serial_disableISR();
+			Serial_puts("\n *** Running I2C Test with Timer... ***\n");
+			TestI2C(true);
+			Serial_puts("\n>");
+			Serial_enableISR();
+		}
+
+		if (testsToRun & TESTI2CNOTIME) {
 			Serial_disableISR();
 			Serial_puts("\n *** Running I2C Test... ***\n");
 			TestI2C(false);

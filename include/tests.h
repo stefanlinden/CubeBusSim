@@ -19,9 +19,10 @@ extern "C" {
 #define CANBUS 		1
 #define RS485BUS 	2
 
-#define TESTI2C 	BIT0
-#define TESTCAN 	BIT1
-#define TESTRS485	BIT2
+#define TESTI2C 		BIT0
+#define TESTCAN 		BIT1
+#define TESTRS485		BIT2
+#define TESTI2CNOTIME 	BIT3
 
 void TestI2C( bool withTimer );
 void TestCAN( bool withTimer );
