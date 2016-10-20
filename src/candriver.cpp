@@ -23,6 +23,7 @@ const MCP_CANTimingConfig CANTimingConfig = { 20000000, /* Oscillator Frequency 
 };
 
 void msgHandler(MCP_CANMessage * msg);
+void ErrorHandler(uint_fast8_t errorFlags);
 
 /* Using some globals for storing the top level handlers
  * This shouldn't be a problem because there is only one instance of the CANInterface */
@@ -37,7 +38,6 @@ uint_fast8_t * testData;
 volatile uint_fast8_t dataRXSize, dataRXCount;
 
 uint_fast8_t CANInterface::init(bool asMaster, uint_fast8_t ownAddress) {
-	uint_fast8_t canAddress;
 	isMaster = asMaster;
 	this->ownAddress = ownAddress;
 
@@ -48,8 +48,26 @@ uint_fast8_t CANInterface::init(bool asMaster, uint_fast8_t ownAddress) {
 
 	canInstance = this;
 
+	/* Set the handler to be called when a message is received */
 	MCP_init();
 
+	MCP_setReceivedMessageHandler(&msgHandler);
+	MCP_setErrorHandler(&ErrorHandler);
+
+	doSoftReset();
+
+	return 0;
+}
+
+uint_fast8_t CANInterface::requestData(uint_fast8_t howMuch,
+		uint_fast8_t address) {
+	dataRXSize = 0;
+	dataRXCount = 0;
+	return 0;
+}
+
+void CANInterface::doSoftReset(void) {
+	uint_fast8_t canAddress;
 	MCP_reset();
 
 	while ((MCP_readRegister(RCANSTAT) >> 5) != MODE_CONFIG)
@@ -60,14 +78,11 @@ uint_fast8_t CANInterface::init(bool asMaster, uint_fast8_t ownAddress) {
 	/* Register an interrupt on TX0 and RX0 */
 	/* These interrupts are handled internally, but kept externally for control */
 	MCP_enableInterrupt(
-	MCP_ISR_RX0IE | MCP_ISR_RX1IE);
-
-	/* Set the handler to be called when a message is received */
-	MCP_setReceivedMessageHandler(&msgHandler);
+	MCP_ISR_RX0IE | MCP_ISR_RX1IE | MCP_ISR_ERRIE);
 
 	/* CAN is a multi-master system, so there is no big difference between the OBC and
 	 * other 'slave'-subsystems, except for filtering of messages */
-	if (asMaster) {
+	if (isMaster) {
 		/* This is the simple case: disable all filters to receive all messages */
 		/* The 'BUKT' bit is also set, enabling rollover of messages in case the RXB0
 		 * is unavailable */
@@ -95,14 +110,6 @@ uint_fast8_t CANInterface::init(bool asMaster, uint_fast8_t ownAddress) {
 
 	/* Go into NORMAL mode */
 	MCP_setMode(MODE_NORMAL);
-	return 0;
-}
-
-uint_fast8_t CANInterface::requestData(uint_fast8_t howMuch,
-		uint_fast8_t address) {
-	dataRXSize = 0;
-	dataRXCount = 0;
-	return 0;
 }
 
 void msgHandler(MCP_CANMessage * msg) {
@@ -155,7 +162,7 @@ uint_fast8_t CANInterface::transmitData(uint_fast8_t node, uint_fast8_t * data,
 	canMsg.data = &size;
 	canMsg.length = 1;
 
-	if(MCP_sendBulk(&canMsg, 1) != 0)
+	if (MCP_sendBulk(&canMsg, 1) != 0)
 		return ERR_TIMEOUT;
 
 	while (ptr != 0) {
@@ -169,11 +176,15 @@ uint_fast8_t CANInterface::transmitData(uint_fast8_t node, uint_fast8_t * data,
 
 		ptr -= canMsg.length;
 
-		if(MCP_sendBulk(&canMsg, 1) != 0) {
+		if (MCP_sendBulk(&canMsg, 1) != 0) {
 			return ERR_TIMEOUT;
 		}
 
 	}
 
 	return 0;
+}
+
+void ErrorHandler(uint_fast8_t errorFlags) {
+	canInstance->doSoftReset();
 }

@@ -21,6 +21,7 @@ void Menu_display(void) {
 	Serial_puts(" 2) Reset Boot Counter\n");
 	Serial_puts("\n 3) Start I2C Test with Timer\n");
 	Serial_puts(" 4) Start CAN Test with Timer\n");
+	Serial_puts(" 5) Start RS485 Test with Timer\n");
 
 	Serial_puts("\n 6) Start I2C Test with Cycle Limit\n");
 
@@ -70,6 +71,9 @@ void Menu_parseOption(uint_fast8_t option) {
 		break;
 	case '4':
 		testsToRun |= TESTCAN;
+		break;
+	case '5':
+		testsToRun |= TESTRS485;
 		break;
 	case '6':
 		testsToRun |= TESTI2CNOTIME;

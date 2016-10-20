@@ -21,9 +21,9 @@
 #include "tests.h"
 #include "datasource.h"
 
-#define USE_CAN
-#define USE_I2C
-//#define USE_RS485
+//#define USE_CAN
+//#define USE_I2C
+#define USE_RS485
 
 /* Select the correct subsystem here */
 #define SUBSYSTEM SUBSYS_OBC
@@ -102,7 +102,7 @@ int main(void) {
 			Serial_disableISR();
 			Serial_puts("\n *** Running I2C Test with Timer... ***\n");
 			TestI2C(true);
-			Serial_puts("\n>");
+			Serial_puts("\n> ");
 			Serial_enableISR();
 		}
 
@@ -110,7 +110,7 @@ int main(void) {
 			Serial_disableISR();
 			Serial_puts("\n *** Running I2C Test... ***\n");
 			TestI2C(false);
-			Serial_puts("\n>");
+			Serial_puts("\n> ");
 			Serial_enableISR();
 		}
 
@@ -118,7 +118,7 @@ int main(void) {
 			Serial_disableISR();
 			Serial_puts("\n *** Running CAN Test... ***\n");
 			TestCAN(true);
-			Serial_puts("\n>");
+			Serial_puts("\n> ");
 			Serial_enableISR();
 		}
 
@@ -126,7 +126,7 @@ int main(void) {
 			Serial_disableISR();
 			Serial_puts("\n *** Running RS485 Test... ***\n");
 			TestRS485(true);
-			Serial_puts("\n>");
+			Serial_puts("\n> ");
 			Serial_enableISR();
 		}
 

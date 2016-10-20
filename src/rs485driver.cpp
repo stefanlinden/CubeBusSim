@@ -26,7 +26,7 @@ uint_fast8_t txBuffer[256];
 
 uint_fast8_t * testData;
 
-volatile uint_fast8_t dataRXSize, dataRXCount, requestSize;
+volatile uint32_t dataRXSize, dataRXCount, requestSize;
 
 /* UART Configuration Parameter. These are the configuration parameters to
  * make the eUSCI A UART module to operate with a 115200 baud rate. These
@@ -105,10 +105,8 @@ uint_fast8_t RS485Interface::transmitData(uint_fast8_t node,
 	/* Enable TX */
 	MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P3, GPIO_PIN0);
 
-	/* Transmit the number of data bytes first */
-	while (!(UCA2IFG & UCTXIFG))
-		;
-
+	/* Transmit the preamble and the number of data bytes first */
+	MAP_UART_transmitData(EUSCI_A2_BASE, 0x55);
 	MAP_UART_transmitData(EUSCI_A2_BASE, size);
 
 	/* Transmit the address */
@@ -146,6 +144,8 @@ uint_fast8_t RS485Interface::transmitData(uint_fast8_t node,
 extern "C" {
 void EUSCIA2_IRQHandler(void) {
 	uint16_t crc_received, crc_check;
+	uint_fast8_t databyte;
+	static bool preambleRcvd = false;
 
 	/* Get the interrupt status */
 	uint32_t status = MAP_UART_getEnabledInterruptStatus(EUSCI_A2_BASE);
@@ -153,17 +153,28 @@ void EUSCIA2_IRQHandler(void) {
 
 	if (status & EUSCI_A_UART_RECEIVE_INTERRUPT) {
 
+		databyte = MAP_UART_receiveData(EUSCI_A2_BASE);
+
+		if (!preambleRcvd) {
+			if (databyte == 0x55) {
+				dataRXSize = 0;
+				dataRXCount = 0;
+				preambleRcvd = true;
+			}
+			return;
+		}
+
 		if (!dataRXSize) {
 			/* First byte is number of data payload bytes in the message, second byte is address. Last two bytes are CRC-16 */
-			dataRXSize = MAP_UART_receiveData(EUSCI_A2_BASE) + 3;
+			dataRXSize = databyte + 3;
 			dataRXCount = 0;
 			return;
 		}
 
-		rxBuffer[dataRXCount] = MAP_UART_receiveData(EUSCI_A2_BASE);
+		rxBuffer[dataRXCount] = databyte;
 		dataRXCount++;
 
-		if (dataRXCount == dataRXSize) {
+		if (dataRXCount >= dataRXSize) {
 
 			beginCRC();
 			addIntForCRC(dataRXCount - 3);
@@ -174,20 +185,21 @@ void EUSCIA2_IRQHandler(void) {
 			crc_received = (rxBuffer[dataRXCount - 2] << 8) + rxBuffer[dataRXCount - 1];
 			if (rxBuffer[0] == getRS485Address(rs485Instance->ownAddress)
 					&& crc_check == crc_received) {
-				rs485_DataHandler(RS485BUS, &rxBuffer[3], dataRXSize - 3);
+				rs485_DataHandler(RS485BUS, &rxBuffer[1], dataRXSize - 3);
 
 				/* If we got a command byte, then respond */
 				if (!rs485Instance->isMaster && dataRXSize == 5) {
 					MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN2);
 
 					/* Transmit a response */
-					testData[0] = rxBuffer[3];
+					testData[0] = rxBuffer[1];
 					rs485Instance->transmitData(SUBSYS_OBC,
 							(uint_fast8_t *) testData, 10);
 				}
 			}
 			dataRXCount = 0;
 			dataRXSize = 0;
+			preambleRcvd = false;
 		}
 
 	}
