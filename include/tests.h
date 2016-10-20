@@ -23,6 +23,8 @@ extern "C" {
 #define TESTCAN 		BIT1
 #define TESTRS485		BIT2
 #define TESTI2CNOTIME 	BIT3
+#define TESTCANNOTIME	BIT4
+#define TESTRS485NOTIME BIT5
 
 void TestI2C( bool withTimer );
 void TestCAN( bool withTimer );

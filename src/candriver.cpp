@@ -135,7 +135,7 @@ void msgHandler(MCP_CANMessage * msg) {
 		if (!canInstance->isMaster) {
 			testData[0] = rxBuffer[0];
 			canInstance->transmitData(SUBSYS_OBC, (uint_fast8_t *) testData,
-					10);
+					getNumBytesFromSlave(canInstance->ownAddress));
 		}
 		dataRXCount = 0;
 		dataRXSize = 0;

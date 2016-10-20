@@ -19,6 +19,7 @@ extern uint_fast8_t rxBuffer[256];
 uint_fast8_t i2c_mode;
 uint_fast8_t * testData;
 void (*i2c_DataHandler)(uint_fast8_t, uint_fast8_t *, uint_fast8_t);
+I2CInterface * i2cInstance;
 
 /* Interrupt handlers */
 void handleReceive(uint8_t);
@@ -29,6 +30,7 @@ uint_fast8_t checkByteResponse;
 /* Class method definitions */
 uint_fast8_t I2CInterface::init(bool asMaster, uint_fast8_t ownAddress) {
 
+	i2cInstance = this;
 	this->isMaster = asMaster;
 	this->ownAddress = ownAddress;
 	wire.setFastMode();
@@ -118,13 +120,15 @@ void handleReceive(uint8_t numBytes) {
  * This request is called on a read request from a master node.
  */
 void handleRequest(void) {
-	uint_fast8_t ii;
+	uint_fast8_t ii, length;
+
+	length = getNumBytesFromSlave(i2cInstance->ownAddress);
 
 	testData[0] = checkByteResponse;
 
-	uint16_t crc = getCRC(testData, 10);
+	uint16_t crc = getCRC(testData, length);
 
-	for (ii = 0; ii < 10; ii++) {
+	for (ii = 0; ii < length; ii++) {
 		wire.write(testData[ii]);
 	}
 

@@ -11,8 +11,12 @@
 #include "datasource.h"
 #include "crc.h"
 
+/* Addresses:
+ * (0) OBC - (1) EPS - (2) ADCS - (3) GPS - (4) Propulsion - (5) TC Radio - (6) PL - (7) MM - (8) PL Radio
+ */
+
 const uint_fast8_t NumBytesFromOBC[9] = { 0, 2, 2, 2, 2, 2, 2, 2, 250 };
-const uint_fast8_t NumBytesFromSlave[9] = { 0, 10, 10, 10, 10, 10, 10, 10, 10 };
+const uint_fast8_t NumBytesFromSlave[9] = { 0, 30, 120, 30, 10, 10, 10, 10, 10 };
 
 /* A random data set generated using random.org */
 uint_fast8_t testdata[250] = { 43, 102, 135, 148, 51, 75, 224, 251, 30, 7,

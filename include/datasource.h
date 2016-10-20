@@ -24,6 +24,7 @@ void initDataCRC( void );
 uint_fast8_t * getData( void );
 uint16_t getCRCForData( uint_fast8_t size );
 uint_fast8_t getNumBytesFromOBC(uint_fast8_t node);
+uint_fast8_t getNumBytesFromSlave(uint_fast8_t node);
 
 #ifdef __cplusplus
 }

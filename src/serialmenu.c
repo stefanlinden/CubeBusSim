@@ -23,7 +23,9 @@ void Menu_display(void) {
 	Serial_puts(" 4) Start CAN Test with Timer\n");
 	Serial_puts(" 5) Start RS485 Test with Timer\n");
 
-	Serial_puts("\n 6) Start I2C Test with Cycle Limit\n");
+	Serial_puts("\n 6) Start I2C Test with Packet Limit\n");
+	Serial_puts(" 7) Start CAN Test with Packet Limit\n");
+	Serial_puts(" 8) Start RS485 Test with Packet Limit\n");
 
 	Serial_puts("\n 9) Reboot\n");
 
@@ -77,6 +79,13 @@ void Menu_parseOption(uint_fast8_t option) {
 		break;
 	case '6':
 		testsToRun |= TESTI2CNOTIME;
+		break;
+	case '7':
+		testsToRun |= TESTCANNOTIME;
+		break;
+	case '8':
+		testsToRun |= TESTRS485NOTIME;
+		break;
 	case '9':
 		Serial_puts("\n *** REBOOT ***   \n\n\n");
 		MAP_ResetCtl_initiateHardReset();

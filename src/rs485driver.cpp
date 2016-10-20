@@ -194,7 +194,7 @@ void EUSCIA2_IRQHandler(void) {
 					/* Transmit a response */
 					testData[0] = rxBuffer[1];
 					rs485Instance->transmitData(SUBSYS_OBC,
-							(uint_fast8_t *) testData, 10);
+							(uint_fast8_t *) testData, getNumBytesFromSlave(rs485Instance->ownAddress));
 				}
 			}
 			dataRXCount = 0;
