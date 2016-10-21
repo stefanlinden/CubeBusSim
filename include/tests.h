@@ -25,10 +25,13 @@ extern "C" {
 #define TESTI2CNOTIME 	BIT3
 #define TESTCANNOTIME	BIT4
 #define TESTRS485NOTIME BIT5
+#define TESTI2CPOWER	BIT6
+#define TESTCANPOWER	BIT7
+#define TESTRS485POWER	BIT8
 
-void TestI2C( bool withTimer );
-void TestCAN( bool withTimer );
-void TestRS485( bool withTimer );
+void TestI2C( bool withTimer, bool beatTimer );
+void TestCAN( bool withTimer, bool beatTimer );
+void TestRS485( bool withTimer, bool beatTimer );
 
 void DataHandleMaster(uint_fast8_t bus, uint_fast8_t * data, uint_fast8_t size);
 

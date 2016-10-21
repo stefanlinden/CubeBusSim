@@ -12,7 +12,7 @@
 #include "tests.h"
 
 extern volatile uint32_t bootCount;
-extern volatile uint_fast8_t testsToRun;
+extern volatile uint_fast16_t testsToRun;
 
 void Menu_display(void) {
 
@@ -26,6 +26,10 @@ void Menu_display(void) {
 	Serial_puts("\n 6) Start I2C Test with Packet Limit\n");
 	Serial_puts(" 7) Start CAN Test with Packet Limit\n");
 	Serial_puts(" 8) Start RS485 Test with Packet Limit\n");
+
+	Serial_puts("\n A) Start I2C Test for Power Measurement\n");
+	Serial_puts(" B) Start CAN Test for Power Measurement\n");
+	Serial_puts(" C) Start RS485 Test for Power Measurement\n");
 
 	Serial_puts("\n 9) Reboot\n");
 
@@ -89,6 +93,18 @@ void Menu_parseOption(uint_fast8_t option) {
 	case '9':
 		Serial_puts("\n *** REBOOT ***   \n\n\n");
 		MAP_ResetCtl_initiateHardReset();
+		break;
+	case 'a':
+	case 'A':
+		testsToRun |= TESTI2CPOWER;
+		break;
+	case 'b':
+	case 'B':
+		testsToRun |= TESTCANPOWER;
+		break;
+	case 'c':
+	case 'C':
+		testsToRun |= TESTRS485POWER;
 		break;
 	default:
 		Serial_puts("Error: unknown option '");

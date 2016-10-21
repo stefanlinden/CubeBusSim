@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <mcp2515.h>
+#include <driverlib.h>
 #include "candriver.h"
 #include "addresstable.h"
 #include "CubeBusSim.h"
@@ -29,6 +30,8 @@ void ErrorHandler(uint_fast8_t errorFlags);
  * This shouldn't be a problem because there is only one instance of the CANInterface */
 void (*can_DataHandler)(uint_fast8_t, uint_fast8_t *, uint_fast8_t);
 CANInterface * canInstance;
+
+const uint_fast8_t ack = 1;
 
 extern uint_fast8_t rxBuffer[256];
 uint_fast8_t txBuffer[256];
@@ -132,10 +135,14 @@ void msgHandler(MCP_CANMessage * msg) {
 
 	if (dataRXCount >= dataRXSize) {
 		can_DataHandler(CANBUS, rxBuffer, dataRXSize);
-		if (!canInstance->isMaster) {
+		if (!canInstance->isMaster && dataRXSize == 2) {
+			MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN0);
+			MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN2);
 			testData[0] = rxBuffer[0];
 			canInstance->transmitData(SUBSYS_OBC, (uint_fast8_t *) testData,
 					getNumBytesFromSlave(canInstance->ownAddress));
+		} else if (!canInstance->isMaster && dataRXSize == 250) {
+			canInstance->transmitData(SUBSYS_OBC, (uint_fast8_t *) &ack, 1);
 		}
 		dataRXCount = 0;
 		dataRXSize = 0;

@@ -21,6 +21,9 @@ uint_fast8_t * testData;
 void (*i2c_DataHandler)(uint_fast8_t, uint_fast8_t *, uint_fast8_t);
 I2CInterface * i2cInstance;
 
+const uint_fast8_t ack = 1;
+volatile uint_fast8_t lastCommandLength;
+
 /* Interrupt handlers */
 void handleReceive(uint8_t);
 void handleRequest(void);
@@ -52,7 +55,6 @@ uint_fast8_t I2CInterface::requestData(uint_fast8_t howMuch,
 	uint_fast8_t ii;
 	uint16_t crc_check, crc_received;
 
-
 	if (wire.requestFrom(getI2CAddress(node), howMuch + 2) != howMuch + 2)
 		return 0xFF;
 
@@ -62,7 +64,7 @@ uint_fast8_t I2CInterface::requestData(uint_fast8_t howMuch,
 	crc_check = getCRC(rxBuffer, howMuch);
 	crc_received = (rxBuffer[howMuch] << 8) + (rxBuffer[howMuch + 1] & 0xFF);
 
-	if(crc_check != crc_received)
+	if (crc_check != crc_received)
 		return 0xFF;
 
 	DataHandler(I2CBUS, rxBuffer, ii + 1);
@@ -109,10 +111,15 @@ void handleReceive(uint8_t numBytes) {
 	for (ii = 0; ii < numBytes; ii++)
 		rxBuffer[ii] = wire.read();
 
-	if(numBytes == 4) /* Command is two bytes + CRC-16 */
+	lastCommandLength = numBytes - 2;
+
+	if (numBytes == 4) /* Command is two bytes + CRC-16 */
 		checkByteResponse = rxBuffer[0];
 
 	i2c_DataHandler(I2CBUS, rxBuffer, numBytes);
+
+	MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN0);
+	MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN2);
 }
 
 /**
@@ -121,18 +128,31 @@ void handleReceive(uint8_t numBytes) {
  */
 void handleRequest(void) {
 	uint_fast8_t ii, length;
+	uint16_t crc;
 
-	length = getNumBytesFromSlave(i2cInstance->ownAddress);
+	if (lastCommandLength == 2) {
+		length = getNumBytesFromSlave(i2cInstance->ownAddress);
 
-	testData[0] = checkByteResponse;
+		testData[0] = checkByteResponse;
 
-	uint16_t crc = getCRC(testData, length);
+		crc = getCRC(testData, length);
 
-	for (ii = 0; ii < length; ii++) {
-		wire.write(testData[ii]);
+		for (ii = 0; ii < length; ii++) {
+			wire.write(testData[ii]);
+		}
+
+		/* Add the CRC */
+		wire.write((crc >> 8) & 0xFF);
+		wire.write(crc & 0xFF);
+
+	} else if (lastCommandLength == 250) {
+		length = 1;
+
+		crc = getCRC((uint_fast8_t *) &ack, length);
+		wire.write(ack);
+
+		/* Add the CRC */
+		wire.write((crc >> 8) & 0xFF);
+		wire.write(crc & 0xFF);
 	}
-
-	/* Add the CRC */
-	wire.write((crc >> 8) & 0xFF);
-	wire.write(crc & 0xFF);
 }

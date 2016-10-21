@@ -24,6 +24,8 @@ RS485Interface * rs485Instance;
 extern uint_fast8_t rxBuffer[256];
 uint_fast8_t txBuffer[256];
 
+const uint_fast8_t ack = 1;
+
 uint_fast8_t * testData;
 
 volatile uint32_t dataRXSize, dataRXCount, requestSize;
@@ -182,7 +184,8 @@ void EUSCIA2_IRQHandler(void) {
 			addDataForCRC(&rxBuffer[1], dataRXSize - 3);
 			crc_check = getCRCResult();
 
-			crc_received = (rxBuffer[dataRXCount - 2] << 8) + rxBuffer[dataRXCount - 1];
+			crc_received = (rxBuffer[dataRXCount - 2] << 8)
+					+ rxBuffer[dataRXCount - 1];
 			if (rxBuffer[0] == getRS485Address(rs485Instance->ownAddress)
 					&& crc_check == crc_received) {
 				rs485_DataHandler(RS485BUS, &rxBuffer[1], dataRXSize - 3);
@@ -194,7 +197,14 @@ void EUSCIA2_IRQHandler(void) {
 					/* Transmit a response */
 					testData[0] = rxBuffer[1];
 					rs485Instance->transmitData(SUBSYS_OBC,
-							(uint_fast8_t *) testData, getNumBytesFromSlave(rs485Instance->ownAddress));
+							(uint_fast8_t *) testData,
+							getNumBytesFromSlave(rs485Instance->ownAddress));
+				} else if (!rs485Instance->isMaster && dataRXSize == 253) {
+					MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN2);
+
+					/* Transmit a response */
+					rs485Instance->transmitData(SUBSYS_OBC,
+							(uint_fast8_t *) &ack, 1);
 				}
 			}
 			dataRXCount = 0;

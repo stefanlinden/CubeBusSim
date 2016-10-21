@@ -49,6 +49,7 @@ extern void SystemInit(void);
 
 /* Forward declaration of the default fault handlers. */
 void Default_Handler(void) __attribute__((weak));
+void Debug_Handler(void) __attribute__((weak));
 extern void Reset_Handler(void) __attribute__((weak));
 void HardFault_Handler(void);
 
@@ -90,7 +91,7 @@ extern void EUSCIB2_IRQHandler(void) __attribute__((weak,alias("Default_Handler"
 extern void EUSCIB3_IRQHandler(void) __attribute__((weak,alias("Default_Handler")));
 extern void ADC14_IRQHandler(void) __attribute__((weak,alias("Default_Handler")));
 extern void T32_INT1_IRQHandler(void);
-extern void T32_INT2_IRQHandler(void) __attribute__((weak,alias("Default_Handler")));
+extern void T32_INT2_IRQHandler(void);
 extern void T32_INTC_IRQHandler(void) __attribute__((weak,alias("Default_Handler")));
 extern void AES256_IRQHandler(void) __attribute__((weak,alias("Default_Handler")));
 extern void RTC_C_IRQHandler(void) __attribute__((weak,alias("Default_Handler")));
@@ -201,6 +202,10 @@ void Default_Handler(void) {
 	}
 
 #pragma diag_pop
+}
+
+void Debug_Handler(void) {
+	while(1) {}
 }
 
 void HardFault_Handler(void) {
