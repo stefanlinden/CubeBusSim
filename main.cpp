@@ -62,6 +62,18 @@ int main(void) {
 	/* Increment the boot counter */
 	bootCount++;
 
+	/* preinit all pulldowns/pullups */
+	P1REN = 0xFF;
+	P2REN = 0xFF;
+	P3REN = 0xFF;
+	P4REN = 0xFF;
+	P5REN = 0xFF;
+	P6REN = 0xFF;
+	P7REN = 0xFF;
+	P8REN = 0xFF;
+	P9REN = 0xFF;
+	P10REN = 0xFF;
+
 	// Initialise the USB CS (to avoid floating)
 	MAP_GPIO_setAsOutputPin(GPIO_PORT_P3, GPIO_PIN7);
 	MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P3, GPIO_PIN7);
@@ -77,15 +89,15 @@ int main(void) {
 	MAP_GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P1, GPIO_PIN1);
 
 	/* If testMode == 0, then boot in I2C/CAN. If testMode == 1, then boot in RS485 mode */
-	/* Default is I2C/CAN. Only applicable for slave. */
+	/* Default is I2C only. Only applicable for slave. */
 	if (MAP_GPIO_getInputPinValue(GPIO_PORT_P1, GPIO_PIN4)) {
 		testMode = 0;
 	} else {
 		testMode = 1;
 	}
 
-	/* Extra mode: if testMode == 2, then start with I2C only */
-	if (testMode == 0 && !MAP_GPIO_getInputPinValue(GPIO_PORT_P1, GPIO_PIN1))
+	/* Extra mode: if testMode == 2, then start with I2C only, otherwise with I2C/CAN */
+	if (testMode == 0 && MAP_GPIO_getInputPinValue(GPIO_PORT_P1, GPIO_PIN1))
 		testMode = 2;
 
 	/* Initialise the test data set */

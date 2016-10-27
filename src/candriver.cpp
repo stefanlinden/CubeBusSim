@@ -194,4 +194,6 @@ uint_fast8_t CANInterface::transmitData(uint_fast8_t node, uint_fast8_t * data,
 
 void ErrorHandler(uint_fast8_t errorFlags) {
 	canInstance->doSoftReset();
+	dataRXSize = 0;
+	dataRXCount = 0;
 }

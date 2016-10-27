@@ -511,8 +511,8 @@ bool transmitPacketOverRS485(uint_fast8_t node, uint_fast8_t length) {
 void setIntervalTimer(void) {
 	MAP_Timer32_initModule(TIMER32_1_BASE, TIMER32_PRESCALER_256, TIMER32_32BIT,
 	TIMER32_PERIODIC_MODE);
-	/* Set the timer to trigger once after 10 seconds */
-	MAP_Timer32_setCount( TIMER32_1_BASE, 1875000);
+	/* Set the timer to trigger once after 60 seconds */
+	MAP_Timer32_setCount( TIMER32_1_BASE, 187500*60);
 	MAP_Interrupt_enableInterrupt(INT_T32_INT2);
 	MAP_Interrupt_enableMaster();
 	MAP_Timer32_startTimer(TIMER32_1_BASE, true);
