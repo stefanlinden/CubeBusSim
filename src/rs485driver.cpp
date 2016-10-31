@@ -29,6 +29,7 @@ const uint_fast8_t ack = 1;
 uint_fast8_t * testData;
 
 volatile uint32_t dataRXSize, dataRXCount, requestSize;
+volatile bool preambleRcvd = false;
 
 /* UART Configuration Parameter. These are the configuration parameters to
  * make the eUSCI A UART module to operate with a 115200 baud rate. These
@@ -88,6 +89,7 @@ uint_fast8_t RS485Interface::requestData(uint_fast8_t howMuch,
 		uint_fast8_t address) {
 	requestSize = howMuch + 1;
 	dataRXCount = 0;
+	preambleRcvd = false;
 	return 0;
 }
 
@@ -147,11 +149,12 @@ extern "C" {
 void EUSCIA2_IRQHandler(void) {
 	uint16_t crc_received, crc_check;
 	uint_fast8_t databyte;
-	static bool preambleRcvd = false;
 
 	/* Get the interrupt status */
 	uint32_t status = MAP_UART_getEnabledInterruptStatus(EUSCI_A2_BASE);
-	MAP_UART_clearInterruptFlag(EUSCI_A2_BASE, status);
+
+	// do NOT clear flags here
+	// MAP_UART_clearInterruptFlag(EUSCI_A2_BASE, status);
 
 	if (status & EUSCI_A_UART_RECEIVE_INTERRUPT) {
 
